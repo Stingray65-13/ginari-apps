@@ -22,24 +22,34 @@ const TG_CHAT_ID = env.TG_CHAT_ID || '';
 const SUPPORT_TG = env.SUPPORT_TG || 'ginari_manager';
 // Демо-режим: оплата имитируется, страница установки в exapplication НЕ создаётся (деньги не списываются).
 const DEMO = env.DEMO === '1' || !(PLATEGA_MERCHANT_ID && PLATEGA_SECRET);
-const DATA_DIR = env.DATA_DIR || path.join(__dirname, 'data');
+const os = require('node:os');
+// Папка для заказов: своя из DATA_DIR, иначе ./data, а если туда нельзя писать (хостинг только для чтения) — временная папка.
+function pickDataDir() {
+  for (const dir of [env.DATA_DIR, path.join(__dirname, 'data'), path.join(os.tmpdir(), 'ginari-data')].filter(Boolean)) {
+    try { fs.mkdirSync(dir, { recursive: true }); fs.accessSync(dir, fs.constants.W_OK); return dir; } catch {}
+  }
+  return null;
+}
+const DATA_DIR = pickDataDir();
 const ROOT = __dirname;
 
 const CATALOG = JSON.parse(fs.readFileSync(path.join(ROOT, 'catalog-data.json'), 'utf8'));
 const META = new Map(CATALOG.apps.map((a) => [a.slug, a]));
 
 // ---------- хранилище заказов (JSON-файл) ----------
-fs.mkdirSync(DATA_DIR, { recursive: true });
-const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const ORDERS_FILE = DATA_DIR ? path.join(DATA_DIR, 'orders.json') : null;
 let orders = {};
-try { orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf8')); } catch { orders = {}; }
+try { if (ORDERS_FILE) orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf8')); } catch { orders = {}; }
 let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const tmp = ORDERS_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(orders, null, 1));
-    fs.renameSync(tmp, ORDERS_FILE);
+    if (!ORDERS_FILE) return;
+    try {
+      const tmp = ORDERS_FILE + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(orders, null, 1));
+      fs.renameSync(tmp, ORDERS_FILE);
+    } catch (e) { log('save error', e.message); }
   }, 50);
 }
 const byTx = (txId) => Object.values(orders).find((o) => o.platega && o.platega.transactionId === txId);
@@ -374,4 +384,4 @@ setInterval(() => {
   }
 }, 30000).unref();
 
-server.listen(PORT, () => log(`Ginari apps on ${BASE_URL} (port ${PORT})${DEMO ? ' — ДЕМО-РЕЖИМ: оплата имитируется, установки не создаются' : ''}`));
+server.listen(PORT, () => log(`Ginari apps on ${BASE_URL} (port ${PORT}, data: ${DATA_DIR || 'память'})${DEMO ? ' — ДЕМО-РЕЖИМ: оплата имитируется, установки не создаются' : ''}`));
