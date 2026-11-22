@@ -235,7 +235,9 @@ section{padding:72px 0}
 .field input{display:block;width:100%;margin-top:6px;height:46px;border:1px solid var(--line-2);border-radius:var(--radius-sm);padding:0 14px;font:16px var(--text);background:rgba(255,255,255,.04);color:var(--ink);outline:none}
 .field input:focus{border-color:var(--teal-hi)}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:14px;margin:6px 0 16px;color:#C9D1D2}
-.check input{margin-top:3px;accent-color:var(--teal-hi)}
+.check input{flex:none;margin-top:3px;accent-color:var(--teal-hi)}
+.check span{flex:1;min-width:0;line-height:1.5}
+.app-txt .app-badge,.app-badge{display:inline-block;overflow:visible;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--terra);color:#0C1214;font-size:11px;font-weight:600;vertical-align:2px}
 .err{background:var(--terra-soft);color:#F3B59B;border-radius:var(--radius-sm);padding:10px 12px;font-size:14px}
 
 /* страница заказа */

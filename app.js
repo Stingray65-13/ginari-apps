@@ -153,7 +153,7 @@
         onclick: function () { if (!a.available) return; if (on) state.selected.delete(a.slug); else if (state.selected.size < state.data.maxApps) state.selected.add(a.slug); changed(); },
       }, [
         icon(a),
-        el('span', { class: 'app-txt' }, [el('b', { text: a.name }), el('span', { text: a.available ? (a.desc || '') : 'временно недоступно' })]),
+        el('span', { class: 'app-txt' }, [el('b', {}, [a.name, a.badge ? el('span', { class: 'app-badge', text: a.badge }) : null]), el('span', { text: a.available ? (a.desc || '') : 'временно недоступно' })]),
         a.available ? el('span', { class: 'app-tick', 'aria-hidden': 'true' }) : null,
       ]));
     });

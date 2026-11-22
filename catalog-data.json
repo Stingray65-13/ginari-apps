@@ -57,6 +57,13 @@
  ],
  "apps": [
   {
+   "slug": "max",
+   "name": "MAX",
+   "cat": "social",
+   "desc": "Мессенджер MAX: чаты, звонки, каналы",
+   "badge": "Хит"
+  },
+  {
    "slug": "gosuslugi",
    "name": "Госуслуги",
    "cat": "gov",
@@ -169,12 +176,6 @@
    "name": "VK Мессенджер",
    "cat": "social",
    "desc": "Отдельный мессенджер ВК"
-  },
-  {
-   "slug": "max",
-   "name": "MAX",
-   "cat": "social",
-   "desc": "Мессенджер: чаты и звонки"
   },
   {
    "slug": "ok",
@@ -388,10 +389,10 @@
    "name": "Максимальный",
    "note": "Любые 10 — каждое по 199 ₽",
    "apps": [
+    "max",
     "sber",
     "t-bank",
     "vk",
-    "vk-music",
     "kinopoisk",
     "okko",
     "avito",
