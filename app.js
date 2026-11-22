@@ -216,7 +216,8 @@
     try {
       var r = await fetch('/api/catalog'); state.data = await r.json();
     } catch (e) { $('#appsGrid').innerHTML = '<p class="muted">Не удалось загрузить каталог. Обновите страницу.</p>'; return; }
-    if (state.data.demo) $('#demoBanner').hidden = false;
+    var mx = appBySlug('max'); if (mx && mx.icon) document.querySelectorAll('.mq-ico').forEach(function (i) { i.src = mx.icon; i.hidden = false; });
+    var mq = $('#maxMarquee'); if (mq) mq.addEventListener('click', function () { var a = appBySlug('max'); if (a && a.available) { addSet(['max']); openCheckout(); } });
     if (state.data.support) document.querySelectorAll('a[href^="https://t.me/"]').forEach(function (a) { a.href = 'https://t.me/' + state.data.support; if (a.id === 'supportFaq') a.textContent = '@' + state.data.support; });
     renderHero(); renderMini('#miniA', 'banks'); renderMini('#miniB', 'media'); renderSets(); renderTiers(); renderCats(); renderApps(); renderCart();
     $('#search').addEventListener('input', function (e) { state.q = e.target.value; state.cat = 'all'; renderCats(); renderApps(); });
