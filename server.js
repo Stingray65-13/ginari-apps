@@ -235,6 +235,7 @@ async function fulfill(order) {
 // ---------- статика ----------
 const STATIC = {
   '/': 'index.html', '/index.html': 'index.html',
+  '/max': 'max.html', '/metrika.js': 'metrika.js',
   '/offer': 'offer.html', '/privacy': 'privacy.html', '/consent': 'consent.html',
   '/app.js': 'app.js', '/order.js': 'order.js', '/styles.css': 'styles.css',
   '/catalog-data.json': 'catalog-data.json',
@@ -245,7 +246,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
-  'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src https://exapplication.ru; connect-src 'self'; script-src 'self'; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'self'; img-src 'self' data: https://mc.yandex.ru https://mc.yandex.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src https://exapplication.ru https://mc.yandex.ru https://mc.yandex.com; connect-src 'self' https://mc.yandex.ru https://mc.yandex.com wss://mc.yandex.ru wss://mc.yandex.com; script-src 'self' https://mc.yandex.ru https://yastatic.net; frame-ancestors 'none'",
 };
 function serveFile(res, file) {
   const p = path.join(ROOT, file);

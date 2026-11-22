@@ -11,7 +11,9 @@
   function supportBtn(o) { return '<a class="btn btn-ghost btn-wide" href="https://t.me/' + esc(o.support) + '" target="_blank" rel="noopener">Написать в поддержку</a>'; }
   function summary(o) { return '<p class="muted" style="margin:6px 0 0">' + o.apps.map(esc).join(' · ') + '</p><p style="margin:10px 0 0"><b>' + rub(o.total) + '</b> <span class="muted">(' + o.apps.length + ' × ' + rub(o.unit) + ')</span></p>'; }
 
+  function paidGoal(o) { if (o.status !== 'paid' && o.status !== 'ready' && o.status !== 'needs_attention') return; try { var k = 'ginari_paid_' + id; if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch (e) {} try { if (window.ginariGoal) window.ginariGoal('order_paid', { order_price: o.total, currency: 'RUB' }); } catch (e) {} }
   function render(o) {
+    paidGoal(o);
     document.querySelectorAll('.support-link').forEach(function (a) { a.href = 'https://t.me/' + o.support; });
     if (o.status === 'awaiting_payment') {
       return h('<div class="order-card"><h1><span class="status-dot"></span>Ждём оплату</h1>' + summary(o) +

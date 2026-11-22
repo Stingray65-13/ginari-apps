@@ -7,6 +7,7 @@
   var plural = function (n, a, b, c) { var m = n % 10, h = n % 100; return (m === 1 && h !== 11) ? a : (m >= 2 && m <= 4 && (h < 10 || h >= 20)) ? b : c; };
   var appsWord = function (n) { return n + ' ' + plural(n, 'приложение', 'приложения', 'приложений'); };
 
+  function goal(n) { try { if (window.ginariGoal) window.ginariGoal(n); } catch (e) {} }
   function store() { try { localStorage.setItem('ginari_sel', JSON.stringify([...state.selected])); } catch (e) {} }
   function restore() { try { (JSON.parse(localStorage.getItem('ginari_sel') || '[]')).forEach(function (s) { state.selected.add(s); }); } catch (e) {} }
 
@@ -39,7 +40,7 @@
     return availableSlugs(apps);
   }
   function renderSets() {
-    var g = $('#setsGrid'); g.innerHTML = '';
+    var g = $('#setsGrid'); if (!g) return; g.innerHTML = '';
     state.data.sets.forEach(function (set) {
       var apps = setApps(set); var n = apps.length; if (!n) return;
       var price = unitPrice(n) * n, old = basePrice() * n;
@@ -123,7 +124,7 @@
 
   // ---------- сетка цен ----------
   function renderTiers() {
-    var n = state.selected.size, t = $('#tiers'); t.innerHTML = '';
+    var n = state.selected.size, t = $('#tiers'); if (!t) return; t.innerHTML = '';
     state.data.tiers.forEach(function (x) {
       var label = x.to >= state.data.maxApps ? 'от ' + x.from + ' приложений' : x.from + '–' + x.to + ' ' + plural(x.to, 'приложение', 'приложения', 'приложений');
       t.appendChild(el('div', { class: 'tier' + (n >= x.from && n <= x.to ? ' active' : '') }, [el('b', { text: rub(x.price) }), el('span', { text: label })]));
@@ -132,14 +133,14 @@
 
   // ---------- каталог ----------
   function renderCats() {
-    var c = $('#cats'); c.innerHTML = '';
+    var c = $('#cats'); if (!c) return; c.innerHTML = '';
     var cats = [{ id: 'all', name: 'Все' }].concat(state.data.categories.filter(function (k) { return state.data.apps.some(function (a) { return a.cat === k.id; }); }));
     cats.forEach(function (k) {
       c.appendChild(el('button', { type: 'button', role: 'tab', 'aria-selected': String(state.cat === k.id), text: k.name, onclick: function () { state.cat = k.id; renderCats(); renderApps(); } }));
     });
   }
   function renderApps() {
-    var g = $('#appsGrid'); g.innerHTML = '';
+    var g = $('#appsGrid'); if (!g) return; g.innerHTML = '';
     var q = state.q.trim().toLowerCase();
     var list = state.data.apps.filter(function (a) {
       return (state.cat === 'all' || a.cat === state.cat) && (!q || a.name.toLowerCase().indexOf(q) >= 0 || (a.desc || '').toLowerCase().indexOf(q) >= 0);
@@ -193,6 +194,7 @@
     $('#checkoutErr').hidden = true;
     $('#payBtn').textContent = 'Оплатить ' + rub(c.total);
     var d = $('#checkout'); if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+    goal('checkout_open');
   }
   function showErr(t) { var e = $('#checkoutErr'); e.textContent = t; e.hidden = false; }
   async function pay() {
@@ -206,7 +208,8 @@
       var j = await r.json();
       if (!j.ok) throw new Error(j.message || 'Не получилось создать заказ.');
       state.selected.clear(); store();
-      location.href = j.redirect;
+      goal('order_create');
+      setTimeout(function () { location.href = j.redirect; }, 250);
     } catch (e) { showErr(e.message); btn.disabled = false; btn.textContent = 'Оплатить ' + rub(c.total); }
   }
 
@@ -215,12 +218,16 @@
     restore();
     try {
       var r = await fetch('/api/catalog'); state.data = await r.json();
-    } catch (e) { $('#appsGrid').innerHTML = '<p class="muted">Не удалось загрузить каталог. Обновите страницу.</p>'; return; }
-    var mx = appBySlug('max'); if (mx && mx.icon) document.querySelectorAll('.mq-ico').forEach(function (i) { i.src = mx.icon; i.hidden = false; });
-    var mq = $('#maxMarquee'); if (mq) mq.addEventListener('click', function () { var a = appBySlug('max'); if (a && a.available) { addSet(['max']); openCheckout(); } });
+    } catch (e) { var g0 = $('#appsGrid'); if (g0) g0.innerHTML = '<p class="muted">Не удалось загрузить каталог. Обновите страницу.</p>'; return; }
+    var mx = appBySlug('max'); if (mx && mx.icon) document.querySelectorAll('.mq-ico, .max-ico').forEach(function (i) { i.addEventListener('load', function () { i.hidden = false; }); i.addEventListener('error', function () { i.hidden = true; }); i.src = mx.icon; });
+    function buyMax(src) { var a = appBySlug('max'); if (a && a.available) { goal(src); addSet(['max']); openCheckout(); } }
+    var mq = $('#maxMarquee'); if (mq) mq.addEventListener('click', function () { buyMax('max_banner'); });
+    document.querySelectorAll('.js-buy-max').forEach(function (b) { b.addEventListener('click', function () { buyMax('max_cta'); }); });
+    var add = (location.search.match(/[?&]add=([a-z0-9-]+)/) || [])[1];
+    if (add && appBySlug(add)) { addSet([add]); setTimeout(openCheckout, 300); }
     if (state.data.support) document.querySelectorAll('a[href^="https://t.me/"]').forEach(function (a) { a.href = 'https://t.me/' + state.data.support; if (a.id === 'supportFaq') a.textContent = '@' + state.data.support; });
     renderHero(); renderMini('#miniA', 'banks'); renderMini('#miniB', 'media'); renderSets(); renderTiers(); renderCats(); renderApps(); renderCart();
-    $('#search').addEventListener('input', function (e) { state.q = e.target.value; state.cat = 'all'; renderCats(); renderApps(); });
+    if ($('#search')) $('#search').addEventListener('input', function (e) { state.q = e.target.value; state.cat = 'all'; renderCats(); renderApps(); });
     $('#checkoutBtn').addEventListener('click', openCheckout);
     $('#payBtn').addEventListener('click', pay);
   }
