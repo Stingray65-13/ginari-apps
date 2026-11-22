@@ -48,14 +48,15 @@
       if (set.operator) {
         var cur = state.ops[set.id] || set.apps[0];
         ops = el('div', { class: 'op-select', 'aria-label': 'Ваш оператор' }, availableSlugs(set.operator).map(function (s) {
-          return el('button', { type: 'button', 'aria-pressed': String(s === cur), text: appBySlug(s).name, onclick: function () { state.ops[set.id] = s; renderSets(); } });
+          return el('button', { type: 'button', 'aria-pressed': String(s === cur), text: appBySlug(s).name, onclick: function () { state.ops[set.id] = s; renderSets(); renderHero(); } });
         }));
       }
       g.appendChild(el('article', { class: 'set' + (set.featured ? ' featured' : '') }, [
         el('div', { class: 'set-top' }, [el('h3', { text: set.name }), set.featured ? el('span', { class: 'set-tag', text: 'выгоднее всего' }) : null]),
         el('p', { class: 'muted', style: 'margin:0', text: set.note }),
         ops,
-        el('p', { class: 'set-apps', style: 'margin:0', text: names }),
+        el('div', { class: 'set-icons', 'aria-hidden': 'true' }, apps.map(function (s) { return icon(appBySlug(s)); })),
+        el('p', { class: 'set-apps', text: names }),
         el('div', { class: 'set-price' }, [
           el('b', { text: rub(price) }),
           old > price ? el('span', { class: 'old', text: rub(old) }) : null,
@@ -68,6 +69,56 @@
         ]),
       ]));
     });
+  }
+
+
+  // ---------- первый экран ----------
+  var heroIdx = 0;
+  function setBySlug(id) { return state.data.sets.find(function (x) { return x.id === id; }); }
+  function addSet(apps) { apps.forEach(function (s) { if (state.selected.size < state.data.maxApps) state.selected.add(s); }); changed(); }
+  function renderMini(id, setId) {
+    var b = $(id), set = setBySlug(setId); if (!b || !set) return;
+    var apps = setApps(set), n = apps.length;
+    b.innerHTML = '';
+    b.setAttribute('aria-label', 'Выбрать набор «' + set.name + '» — ' + rub(unitPrice(n) * n));
+    b.appendChild(el('span', { class: 'tm-title', text: set.name }));
+    b.appendChild(el('span', { class: 'tm-art' }, [
+      el('span', { class: 'tm-icons' }, apps.slice(0, 6).map(function (s) { return icon(appBySlug(s)); })),
+    ]));
+    b.appendChild(el('span', { class: 'tm-foot' }, [
+      el('span', { class: 'tm-price', text: rub(unitPrice(n) * n) }),
+      el('span', { class: 'round', 'aria-hidden': 'true', text: '+' }),
+    ]));
+    b.onclick = function () { addSet(apps); openCheckout(); };
+  }
+  function renderHero() {
+    var box = $('#heroSet'); if (!box) return;
+    var sets = state.data.sets.filter(function (s) { return setApps(s).length; });
+    if (!sets.length) return;
+    heroIdx = (heroIdx + sets.length) % sets.length;
+    var set = sets[heroIdx], apps = setApps(set), n = apps.length, price = unitPrice(n) * n, old = basePrice() * n;
+    box.innerHTML = '';
+    var main = el('div', { class: 'th-main' }, [
+      el('span', { class: 'th-tag', text: set.featured ? 'Выгоднее всего' : 'Набор' }),
+      el('h2', { class: 'th-name', text: set.name }),
+      el('p', { class: 'th-note', text: set.note }),
+      el('div', { class: 'th-icons' }, apps.slice(0, 12).map(function (s) { var i = icon(appBySlug(s)); i.title = appBySlug(s).name; return i; })),
+      el('div', { class: 'th-foot' }, [
+        el('div', { class: 'th-price' }, [el('b', { text: rub(price) }), old > price ? el('span', { class: 'old', text: rub(old) }) : null]),
+        el('div', { class: 'th-nav' }, [
+          el('button', { type: 'button', class: 'round', 'aria-label': 'Предыдущий набор', text: '‹', onclick: function () { heroIdx--; renderHero(); } }),
+          el('button', { type: 'button', class: 'round', 'aria-label': 'Следующий набор', text: '›', onclick: function () { heroIdx++; renderHero(); } }),
+        ]),
+        el('button', { type: 'button', class: 'round light', 'aria-label': 'Выбрать набор «' + set.name + '»', text: '+', onclick: function () { addSet(apps); openCheckout(); } }),
+      ]),
+    ]);
+    var used = {};
+    var thumbs = el('div', { class: 'th-thumbs', role: 'tablist', 'aria-label': 'Наборы' }, sets.map(function (s, i) {
+      var list = setApps(s), pick = list.find(function (x) { return !used[x]; }) || list[0]; used[pick] = 1;
+      var first = appBySlug(pick);
+      return el('button', { type: 'button', class: 'th-thumb', role: 'tab', 'aria-pressed': String(i === heroIdx), 'aria-label': s.name, title: s.name, onclick: function () { heroIdx = i; renderHero(); } }, [icon(first)]);
+    }));
+    box.appendChild(main); box.appendChild(thumbs);
   }
 
   // ---------- сетка цен ----------
@@ -167,7 +218,7 @@
     } catch (e) { $('#appsGrid').innerHTML = '<p class="muted">Не удалось загрузить каталог. Обновите страницу.</p>'; return; }
     if (state.data.demo) $('#demoBanner').hidden = false;
     if (state.data.support) document.querySelectorAll('a[href^="https://t.me/"]').forEach(function (a) { a.href = 'https://t.me/' + state.data.support; if (a.id === 'supportFaq') a.textContent = '@' + state.data.support; });
-    renderSets(); renderTiers(); renderCats(); renderApps(); renderCart();
+    renderHero(); renderMini('#miniA', 'banks'); renderMini('#miniB', 'media'); renderSets(); renderTiers(); renderCats(); renderApps(); renderCart();
     $('#search').addEventListener('input', function (e) { state.q = e.target.value; state.cat = 'all'; renderCats(); renderApps(); });
     $('#checkoutBtn').addEventListener('click', openCheckout);
     $('#payBtn').addEventListener('click', pay);

@@ -229,7 +229,7 @@ const STATIC = {
   '/offer': 'offer.html', '/privacy': 'privacy.html', '/consent': 'consent.html',
   '/app.js': 'app.js', '/order.js': 'order.js', '/styles.css': 'styles.css',
   '/catalog-data.json': 'catalog-data.json',
-  '/logo.png': 'logo.png', '/favicon.svg': 'favicon.svg', '/favicon.png': 'favicon.png',
+  '/logo.png': 'logo.png', '/logo-light.png': 'logo-light.png', '/bg.svg': 'bg.svg', '/favicon.svg': 'favicon.svg', '/favicon.png': 'favicon.png',
   '/robots.txt': 'robots.txt',
 };
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8' };
