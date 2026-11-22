@@ -107,18 +107,25 @@ function rateLimited(ip, max = 10, windowMs = 10 * 60 * 1000) {
 }
 
 // ---------- каталог (наличие — из exapplication) ----------
-let catalogCache = { at: 0, data: null };
+let catalogCache = { at: 0, ttl: 0, data: null };
+let lastGood = null;
 const iconSrc = new Map();   // slug -> адрес иконки в exapplication
 const iconCache = new Map(); // slug -> { type, buf }
 async function getCatalog() {
-  if (catalogCache.data && Date.now() - catalogCache.at < 10 * 60 * 1000) return catalogCache.data;
+  if (catalogCache.data && Date.now() - catalogCache.at < catalogCache.ttl) return catalogCache.data;
   let remote = null;
   if (EXAPP_KEY) {
-    try {
-      const r = await fetch(`${EXAPP_API}/apps`, { headers: { Authorization: `Bearer ${EXAPP_KEY}` } });
-      const j = await r.json();
-      remote = Array.isArray(j) ? j : (j.apps || j.items || null);
-    } catch (e) { log('catalog fetch error', e.message); }
+    for (let attempt = 0; attempt < 2 && !remote; attempt++) {
+      try {
+        const r = await fetch(`${EXAPP_API}/apps`, { headers: { Authorization: `Bearer ${EXAPP_KEY}` }, signal: AbortSignal.timeout(8000) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        remote = Array.isArray(j) ? j : (j.apps || j.items || null);
+        if (!remote) throw new Error('unexpected answer: ' + JSON.stringify(j).slice(0, 200));
+      } catch (e) { log('catalog fetch error', e.message); }
+    }
+    // exapp не ответил — отдаём последний удачный каталог и пробуем снова через 30 секунд
+    if (!remote && lastGood) { catalogCache = { at: Date.now(), ttl: 30 * 1000, data: lastGood }; return lastGood; }
   }
   const avail = new Map((remote || []).map((a) => [a.slug, a]));
   const apps = [];
@@ -136,7 +143,9 @@ async function getCatalog() {
     }
   }
   const data = { tiers: CATALOG.tiers, maxApps: CATALOG.maxApps, categories: CATALOG.categories, sets: CATALOG.sets, apps, demo: DEMO, support: SUPPORT_TG };
-  catalogCache = { at: Date.now(), data };
+  const ok = !EXAPP_KEY || !!remote;
+  if (ok && remote) lastGood = data;
+  catalogCache = { at: Date.now(), ttl: ok ? 10 * 60 * 1000 : 30 * 1000, data };
   return data;
 }
 
