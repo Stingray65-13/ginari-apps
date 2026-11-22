@@ -5,8 +5,8 @@
 ## Переменные окружения
 | Переменная | Что это |
 |---|---|
-| `BASE_URL` | Адрес сайта, например `https://ginari-apps.ru` (нужен для возврата после оплаты) |
-| `EXAPP_KEY` | API-ключ exapplication (`exa_…`) |
+| `BASE_URL` | Адрес сайта, например `https://ginari.tech` (нужен для возврата после оплаты) |
+| `EXAPP_KEY` | API-ключ exapplication (`exa_856f0759fdba596f8494e687ee733d34`) |
 | `EXAPP_WEBHOOK_SECRET` | Secret вебхука из карточки ключа exapplication |
 | `PLATEGA_MERCHANT_ID` | MerchantId из кабинета Platega |
 | `PLATEGA_SECRET` | API-ключ (X-Secret) из кабинета Platega |
