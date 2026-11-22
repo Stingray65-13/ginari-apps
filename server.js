@@ -98,6 +98,8 @@ function rateLimited(ip, max = 10, windowMs = 10 * 60 * 1000) {
 
 // ---------- каталог (наличие — из exapplication) ----------
 let catalogCache = { at: 0, data: null };
+const iconSrc = new Map();   // slug -> адрес иконки в exapplication
+const iconCache = new Map(); // slug -> { type, buf }
 async function getCatalog() {
   if (catalogCache.data && Date.now() - catalogCache.at < 10 * 60 * 1000) return catalogCache.data;
   let remote = null;
@@ -113,12 +115,14 @@ async function getCatalog() {
   for (const m of CATALOG.apps) {
     const r = avail.get(m.slug);
     if (remote && !r) continue; // в их каталоге больше нет
-    apps.push({ ...m, icon: r && r.icon_url ? r.icon_url : null, available: r ? r.available !== false : true });
+    if (r && r.icon_url) iconSrc.set(m.slug, r.icon_url);
+    apps.push({ ...m, icon: iconSrc.has(m.slug) ? `/icon/${m.slug}` : null, available: r ? r.available !== false : true });
   }
   // новые приложения, которых нет в нашем списке
   for (const r of remote || []) {
     if (!META.has(r.slug) && !CATALOG.hidden.includes(r.slug)) {
-      apps.push({ slug: r.slug, name: r.name || r.slug, cat: 'life', desc: '', icon: r.icon_url || null, available: r.available !== false });
+      if (r.icon_url) iconSrc.set(r.slug, r.icon_url);
+      apps.push({ slug: r.slug, name: r.name || r.slug, cat: 'other', desc: '', icon: r.icon_url ? `/icon/${r.slug}` : null, available: r.available !== false });
     }
   }
   const data = { tiers: CATALOG.tiers, maxApps: CATALOG.maxApps, categories: CATALOG.categories, sets: CATALOG.sets, apps, demo: DEMO, support: SUPPORT_TG };
@@ -212,7 +216,7 @@ async function fulfill(order) {
 // ---------- статика ----------
 const STATIC = {
   '/': 'index.html', '/index.html': 'index.html',
-  '/offer': 'offer.html', '/privacy': 'privacy.html',
+  '/offer': 'offer.html', '/privacy': 'privacy.html', '/consent': 'consent.html',
   '/app.js': 'app.js', '/order.js': 'order.js', '/styles.css': 'styles.css',
   '/catalog-data.json': 'catalog-data.json',
   '/logo.png': 'logo.png', '/favicon.svg': 'favicon.svg', '/favicon.png': 'favicon.png',
@@ -222,7 +226,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
-  'Content-Security-Policy': "default-src 'self'; img-src 'self' data: https://exapplication.ru; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src https://exapplication.ru; connect-src 'self'; script-src 'self'; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src https://exapplication.ru; connect-src 'self'; script-src 'self'; frame-ancestors 'none'",
 };
 function serveFile(res, file) {
   const p = path.join(ROOT, file);
@@ -241,6 +245,24 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && STATIC[p]) return serveFile(res, STATIC[p]);
     if (req.method === 'GET' && /^\/order\/[A-Za-z0-9_-]{16,64}$/.test(p)) return serveFile(res, 'order.html');
+
+    const im = p.match(/^\/icon\/([a-z0-9-]{1,40})$/);
+    if (req.method === 'GET' && im) {
+      const slug = im[1];
+      if (!iconSrc.size) await getCatalog();
+      let ic = iconCache.get(slug);
+      const src = iconSrc.get(slug);
+      if (!ic && src && /^https:\/\/exapplication\.ru\//.test(src)) {
+        try {
+          const r = await fetch(src);
+          const type = r.headers.get('content-type') || 'image/png';
+          if (r.ok && /^image\//.test(type)) { ic = { type, buf: Buffer.from(await r.arrayBuffer()) }; iconCache.set(slug, ic); }
+        } catch (e) { log('icon error', slug, e.message); }
+      }
+      if (!ic) return send(res, 404, 'Not found');
+      res.writeHead(200, { 'Content-Type': ic.type, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' });
+      return res.end(ic.buf);
+    }
 
     if (req.method === 'GET' && p === '/api/catalog') return send(res, 200, await getCatalog());
 

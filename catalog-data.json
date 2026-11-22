@@ -45,6 +45,14 @@
   {
    "id": "ai",
    "name": "Нейросети"
+  },
+  {
+   "id": "net",
+   "name": "Интернет"
+  },
+  {
+   "id": "other",
+   "name": "Другие"
   }
  ],
  "apps": [
@@ -359,12 +367,21 @@
    "name": "Claude",
    "cat": "ai",
    "desc": "Ассистент для работы и учёбы"
+  },
+  {
+   "slug": "v2ray",
+   "name": "V2Ray",
+   "cat": "net",
+   "desc": "Клиент для защищённого подключения"
+  },
+  {
+   "slug": "happ-plus",
+   "name": "Happ Plus",
+   "cat": "net",
+   "desc": "Клиент для защищённого подключения"
   }
  ],
- "hidden": [
-  "v2ray",
-  "happ-plus"
- ],
+ "hidden": [],
  "sets": [
   {
    "id": "max10",

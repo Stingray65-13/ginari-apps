@@ -2,7 +2,7 @@
   'use strict';
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var state = { data: null, selected: new Set(), cat: 'all', q: '', ops: {} };
-  var COLORS = { gov: '#2C5AA0', banks: '#1E5963', social: '#2F4A6D', media: '#B56A52', telecom: '#4F6B5B', life: '#7A6450', ai: '#0B0F10' };
+  var COLORS = { net: '#3B4A5A', other: '#5A6468', gov: '#2C5AA0', banks: '#1E5963', social: '#2F4A6D', media: '#B56A52', telecom: '#4F6B5B', life: '#7A6450', ai: '#0B0F10' };
   var rub = function (n) { return n.toLocaleString('ru-RU') + ' ₽'; };
   var plural = function (n, a, b, c) { var m = n % 10, h = n % 100; return (m === 1 && h !== 11) ? a : (m >= 2 && m <= 4 && (h < 10 || h >= 20)) ? b : c; };
   var appsWord = function (n) { return n + ' ' + plural(n, 'приложение', 'приложения', 'приложений'); };
@@ -101,13 +101,19 @@
         type: 'button', class: 'app', 'aria-pressed': String(on), disabled: a.available ? null : 'disabled',
         onclick: function () { if (!a.available) return; if (on) state.selected.delete(a.slug); else if (state.selected.size < state.data.maxApps) state.selected.add(a.slug); changed(); },
       }, [
-        a.icon && /^https:\/\/exapplication\.ru\//.test(a.icon)
-          ? el('img', { class: 'app-ico app-img', src: a.icon, alt: '', loading: 'lazy', width: '42', height: '42' })
-          : el('span', { class: 'app-ico', style: 'background:' + (COLORS[a.cat] || '#1E5963'), text: a.name.replace(/^[^A-Za-zА-Яа-яЁё0-9]+/, '').charAt(0).toUpperCase() }),
+        icon(a),
         el('span', { class: 'app-txt' }, [el('b', { text: a.name }), el('span', { text: a.available ? (a.desc || '') : 'временно недоступно' })]),
         a.available ? el('span', { class: 'app-tick', 'aria-hidden': 'true' }) : null,
       ]));
     });
+  }
+
+  function letter(a) { return el('span', { class: 'app-ico', style: 'background:' + (COLORS[a.cat] || '#1E5963'), text: a.name.replace(/^[^A-Za-zА-Яа-яЁё0-9]+/, '').charAt(0).toUpperCase() }); }
+  function icon(a) {
+    if (!a.icon || a.icon.indexOf('/icon/') !== 0) return letter(a);
+    var img = el('img', { class: 'app-ico app-img', src: a.icon, alt: '', width: '42', height: '42', decoding: 'async' });
+    img.addEventListener('error', function () { img.replaceWith(letter(a)); });
+    return img;
   }
 
   // ---------- корзина ----------
