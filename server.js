@@ -242,7 +242,7 @@ function serveFile(res, file) {
   const p = path.join(ROOT, file);
   fs.readFile(p, (err, buf) => {
     if (err) return send(res, 404, 'Not found');
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(p)] || 'application/octet-stream', 'Cache-Control': file.endsWith('.html') ? 'no-cache' : 'public, max-age=3600', ...SECURITY_HEADERS });
+    res.writeHead(200, { 'Content-Type': TYPES[path.extname(p)] || 'application/octet-stream', 'Cache-Control': /\.(html|css|js|json)$/.test(file) ? 'no-cache' : 'public, max-age=3600', ...SECURITY_HEADERS });
     res.end(buf);
   });
 }
