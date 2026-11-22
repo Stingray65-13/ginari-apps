@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ginari — Сбер, Т-Банк, ВК и другие приложения на iPhone</title>
+<meta name="description" content="Установка приложений, которых нет в App Store России: банки, ВК, MAX, Кинопоиск, Авито. Без прошивки, по ссылке за пару минут. От 199 ₽ за приложение.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Jost:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="demo-banner" id="demoBanner" hidden>Демо-режим: оплата не подключена, заказы тестовые</div>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a href="/" class="brand" aria-label="Ginari — на главную"><img src="/logo.png" alt="ginari" height="30"></a>
+    <nav class="top-nav">
+      <a href="#sets">Наборы</a>
+      <a href="#catalog">Приложения</a>
+      <a href="#prices">Цены</a>
+      <a href="#faq">Вопросы</a>
+    </nav>
+    <a class="btn btn-ghost btn-sm" id="supportTop" href="https://t.me/ginari_manager" target="_blank" rel="noopener">Поддержка</a>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap hero-in">
+      <p class="eyebrow">Установка приложений на iPhone</p>
+      <h1>Банки и сервисы, которых нет в&nbsp;App&nbsp;Store, — снова на вашем iPhone</h1>
+      <p class="lead">Сбер, Т-Банк, Госуслуги, ВКонтакте, MAX, Кинопоиск, Авито и ещё четыре десятка приложений. Выберите нужные, оплатите по СБП — установка откроется прямо здесь, сразу после оплаты.</p>
+      <div class="hero-cta">
+        <a href="#catalog" class="btn btn-primary">Выбрать приложения</a>
+        <a href="#sets" class="btn btn-ghost">Готовые наборы</a>
+      </div>
+      <ul class="facts">
+        <li><b>От 199 ₽</b><span>за приложение</span></li>
+        <li><b>Пара минут</b><span>ставите сами по ссылке</span></li>
+        <li><b>Без прошивки</b><span>обычная установка из App Store</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="how">
+    <div class="wrap">
+      <h2>Как это работает</h2>
+      <ol class="steps">
+        <li><span class="num">1</span><h3>Выбираете приложения</h3><p>Отдельно или готовым набором. Чем больше в заказе, тем дешевле каждое.</p></li>
+        <li><span class="num">2</span><h3>Оплачиваете по СБП</h3><p>Через приложение банка или по QR-коду.</p></li>
+        <li><span class="num">3</span><h3>Устанавливаете</h3><p>После оплаты вы вернётесь на сайт — там будут данные для входа и подсказки. Код подтверждения придёт на ту же страницу.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="sets" class="sets">
+    <div class="wrap">
+      <h2>Готовые наборы</h2>
+      <p class="sub">Собрали то, что обычно ставят вместе. Состав можно поменять: добавить своё или убрать лишнее.</p>
+      <div class="sets-grid" id="setsGrid"></div>
+    </div>
+  </section>
+
+  <section id="prices" class="prices">
+    <div class="wrap">
+      <h2>Цена зависит от количества</h2>
+      <p class="sub">Считается за весь заказ: выбрали 4 приложения — каждое по 250 ₽, итого 1 000 ₽.</p>
+      <div class="tiers" id="tiers"></div>
+    </div>
+  </section>
+
+  <section id="catalog" class="catalog">
+    <div class="wrap">
+      <div class="catalog-head">
+        <h2>Каталог приложений</h2>
+        <input type="search" id="search" placeholder="Найти приложение" autocomplete="off" aria-label="Поиск приложения">
+      </div>
+      <div class="cats" id="cats" role="tablist"></div>
+      <div class="apps-grid" id="appsGrid"><p class="muted">Загружаем каталог…</p></div>
+    </div>
+  </section>
+
+  <section id="faq" class="faq">
+    <div class="wrap">
+      <h2>Вопросы</h2>
+      <details><summary>Это безопасно? Мне нужно отдавать свой Apple ID?</summary><p>Свой Apple ID отдавать не нужно. На время установки вы входите в отдельный аккаунт только в разделе «Контент и покупки» в App Store. В iCloud этим аккаунтом входить нельзя — на странице установки это написано крупно.</p></details>
+      <details><summary>Сколько времени занимает установка?</summary><p>Обычно 2–5 минут. Страница установки открывается сразу после оплаты и действует около двух часов — лучше ставить сразу.</p></details>
+      <details><summary>Приложения будут обновляться?</summary><p>Да, через App Store, как обычные приложения. Для обновления может понадобиться снова войти в тот же аккаунт.</p></details>
+      <details><summary>Можно поставить на несколько iPhone?</summary><p>Один заказ — один iPhone. Для второго устройства оформите ещё один заказ.</p></details>
+      <details><summary>Что-то не получилось — что делать?</summary><p>Напишите в поддержку в Telegram — <a id="supportFaq" href="https://t.me/ginari_manager" target="_blank" rel="noopener">@ginari_manager</a>. Поможем на каждом шаге.</p></details>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <img src="/logo.png" alt="ginari" height="24">
+    <p>ИП Емельянов Михаил Артёмович · ИНН [ИНН] · ОГРНИП [ОГРНИП]</p>
+    <p><a href="/offer">Публичная оферта</a> · <a href="/privacy">Политика конфиденциальности</a> · <a class="support-link" href="https://t.me/ginari_manager" target="_blank" rel="noopener">Поддержка в Telegram</a></p>
+    <p class="muted small">Названия приложений принадлежат их правообладателям. Мы не связаны с банками и сервисами из каталога.</p>
+  </div>
+</footer>
+
+<div class="cartbar" id="cartbar" hidden>
+  <div class="wrap cartbar-in">
+    <div class="cart-info">
+      <b id="cartCount">0 приложений</b>
+      <span id="cartHint" class="muted"></span>
+    </div>
+    <div class="cart-total"><button class="btn btn-primary" id="checkoutBtn">Оформить</button></div>
+  </div>
+</div>
+
+<dialog id="checkout" class="dlg">
+  <form method="dialog" id="checkoutForm" novalidate>
+    <button class="dlg-close" value="cancel" aria-label="Закрыть">×</button>
+    <h2>Ваш заказ</h2>
+    <ul class="chosen" id="chosenList"></ul>
+    <div class="sum-row"><span id="sumLine"></span><b id="sumTotal"></b></div>
+    <label class="field">Telegram или телефон для связи
+      <input name="contact" id="contact" required placeholder="@username или +7…" autocomplete="tel">
+    </label>
+    <label class="field">Email для чека <span class="muted">(необязательно)</span>
+      <input name="email" id="email" type="email" placeholder="you@mail.ru" autocomplete="email">
+    </label>
+    <label class="check"><input type="checkbox" id="agree"> Принимаю <a href="/offer" target="_blank">оферту</a> и <a href="/privacy" target="_blank">политику конфиденциальности</a></label>
+    <p class="err" id="checkoutErr" hidden></p>
+    <button class="btn btn-primary btn-wide" id="payBtn" type="button">Перейти к оплате</button>
+    <p class="muted small center">Установка откроется на этом сайте сразу после оплаты</p>
+  </form>
+</dialog>
+
+<script src="/app.js"></script>
+</body>
+</html>

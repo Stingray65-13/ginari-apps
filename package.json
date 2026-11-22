@@ -1,0 +1,13 @@
+{
+  "name": "ginari-apps",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ginari — установка приложений на iPhone",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

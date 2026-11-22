@@ -1,0 +1,454 @@
+{
+ "tiers": [
+  {
+   "from": 1,
+   "to": 2,
+   "price": 290
+  },
+  {
+   "from": 3,
+   "to": 9,
+   "price": 250
+  },
+  {
+   "from": 10,
+   "to": 20,
+   "price": 199
+  }
+ ],
+ "maxApps": 20,
+ "categories": [
+  {
+   "id": "banks",
+   "name": "Банки"
+  },
+  {
+   "id": "gov",
+   "name": "Госуслуги"
+  },
+  {
+   "id": "social",
+   "name": "Соцсети и мессенджеры"
+  },
+  {
+   "id": "media",
+   "name": "Кино и музыка"
+  },
+  {
+   "id": "telecom",
+   "name": "Связь и почта"
+  },
+  {
+   "id": "life",
+   "name": "На каждый день"
+  },
+  {
+   "id": "ai",
+   "name": "Нейросети"
+  }
+ ],
+ "apps": [
+  {
+   "slug": "gosuslugi",
+   "name": "Госуслуги",
+   "cat": "gov",
+   "desc": "Документы, штрафы, запись к врачу"
+  },
+  {
+   "slug": "gosuslugi-avto",
+   "name": "Госуслуги Авто",
+   "cat": "gov",
+   "desc": "Штрафы, ОСАГО, документы на авто"
+  },
+  {
+   "slug": "chestnyy-znak",
+   "name": "Честный Знак",
+   "cat": "gov",
+   "desc": "Проверка маркировки товаров"
+  },
+  {
+   "slug": "sber",
+   "name": "СберБанк Онлайн",
+   "cat": "banks",
+   "desc": "Счета, переводы и платежи Сбера"
+  },
+  {
+   "slug": "t-bank",
+   "name": "Т-Банк",
+   "cat": "banks",
+   "desc": "Карты, переводы, инвестиции"
+  },
+  {
+   "slug": "alfa-bank",
+   "name": "Альфа-Банк",
+   "cat": "banks",
+   "desc": "Мобильный банк Альфы"
+  },
+  {
+   "slug": "vtb",
+   "name": "ВТБ Онлайн",
+   "cat": "banks",
+   "desc": "Мобильный банк ВТБ"
+  },
+  {
+   "slug": "pochta-bank",
+   "name": "Почта Банк",
+   "cat": "banks",
+   "desc": "Карты и кредиты Почта Банка"
+  },
+  {
+   "slug": "rshb",
+   "name": "Россельхозбанк",
+   "cat": "banks",
+   "desc": "Мобильный банк РСХБ"
+  },
+  {
+   "slug": "vtb-invest",
+   "name": "ВТБ Инвестиции",
+   "cat": "banks",
+   "desc": "Брокерский счёт и биржа"
+  },
+  {
+   "slug": "alfa-invest",
+   "name": "Альфа-Инвестиции",
+   "cat": "banks",
+   "desc": "Брокерский счёт Альфы"
+  },
+  {
+   "slug": "alfa-kapital",
+   "name": "Альфа-Капитал",
+   "cat": "banks",
+   "desc": "Паевые фонды и накопления"
+  },
+  {
+   "slug": "alfa-biznes",
+   "name": "Альфа-Бизнес",
+   "cat": "banks",
+   "desc": "Банк для ИП и компаний"
+  },
+  {
+   "slug": "sber-insurance",
+   "name": "Сбер Страхование",
+   "cat": "banks",
+   "desc": "Полисы и страховые случаи"
+  },
+  {
+   "slug": "yandex-pay",
+   "name": "Яндекс Пэй",
+   "cat": "banks",
+   "desc": "Оплата и кешбэк Яндекса"
+  },
+  {
+   "slug": "sbpay",
+   "name": "СБПэй",
+   "cat": "banks",
+   "desc": "Оплата по QR через СБП"
+  },
+  {
+   "slug": "ozon-bank",
+   "name": "Ozon Банк",
+   "cat": "banks",
+   "desc": "Карта и счёт Ozon"
+  },
+  {
+   "slug": "vk",
+   "name": "ВКонтакте",
+   "cat": "social",
+   "desc": "Лента, друзья, сообщения"
+  },
+  {
+   "slug": "vk-messenger",
+   "name": "VK Мессенджер",
+   "cat": "social",
+   "desc": "Отдельный мессенджер ВК"
+  },
+  {
+   "slug": "max",
+   "name": "MAX",
+   "cat": "social",
+   "desc": "Мессенджер: чаты и звонки"
+  },
+  {
+   "slug": "ok",
+   "name": "Одноклассники",
+   "cat": "social",
+   "desc": "Друзья, фото, сообщения"
+  },
+  {
+   "slug": "okko",
+   "name": "Okko",
+   "cat": "media",
+   "desc": "Онлайн-кинотеатр и спорт"
+  },
+  {
+   "slug": "premier",
+   "name": "PREMIER",
+   "cat": "media",
+   "desc": "Сериалы и шоу"
+  },
+  {
+   "slug": "ivi",
+   "name": "Иви",
+   "cat": "media",
+   "desc": "Фильмы и мультфильмы"
+  },
+  {
+   "slug": "kinopoisk",
+   "name": "Кинопоиск",
+   "cat": "media",
+   "desc": "Фильмы и сериалы Яндекса"
+  },
+  {
+   "slug": "zvuk",
+   "name": "Звук",
+   "cat": "media",
+   "desc": "Музыка и подкасты"
+  },
+  {
+   "slug": "vk-music",
+   "name": "VK Музыка",
+   "cat": "media",
+   "desc": "Треки и плейлисты ВК"
+  },
+  {
+   "slug": "vk-video",
+   "name": "VK Видео",
+   "cat": "media",
+   "desc": "Видео и трансляции ВК"
+  },
+  {
+   "slug": "rutube",
+   "name": "RuTube",
+   "cat": "media",
+   "desc": "Видеохостинг"
+  },
+  {
+   "slug": "yandeks-muzyka",
+   "name": "Яндекс Музыка",
+   "cat": "media",
+   "desc": "Музыка, подкасты и Моя волна"
+  },
+  {
+   "slug": "mts",
+   "name": "Мой МТС",
+   "cat": "telecom",
+   "desc": "Тариф, баланс, услуги МТС"
+  },
+  {
+   "slug": "megafon",
+   "name": "МегаФон",
+   "cat": "telecom",
+   "desc": "Личный кабинет МегаФона"
+  },
+  {
+   "slug": "beeline",
+   "name": "билайн",
+   "cat": "telecom",
+   "desc": "Личный кабинет билайна"
+  },
+  {
+   "slug": "yota",
+   "name": "Yota",
+   "cat": "telecom",
+   "desc": "Тариф и баланс Yota"
+  },
+  {
+   "slug": "pochta-mail",
+   "name": "Почта Mail",
+   "cat": "telecom",
+   "desc": "Письма с любых ящиков"
+  },
+  {
+   "slug": "oblako-mail",
+   "name": "Облако Mail",
+   "cat": "telecom",
+   "desc": "Хранилище для фото и файлов"
+  },
+  {
+   "slug": "avito",
+   "name": "Авито",
+   "cat": "life",
+   "desc": "Купить и продать что угодно"
+  },
+  {
+   "slug": "yula",
+   "name": "Юла",
+   "cat": "life",
+   "desc": "Объявления рядом"
+  },
+  {
+   "slug": "lenta",
+   "name": "Лента",
+   "cat": "life",
+   "desc": "Доставка продуктов и бонусы"
+  },
+  {
+   "slug": "eapteka",
+   "name": "ЕАПТЕКА",
+   "cat": "life",
+   "desc": "Лекарства с доставкой"
+  },
+  {
+   "slug": "avtodor",
+   "name": "Автодор",
+   "cat": "life",
+   "desc": "Платные дороги и транспондер"
+  },
+  {
+   "slug": "gazpromneft",
+   "name": "АЗС Газпромнефть",
+   "cat": "life",
+   "desc": "Оплата топлива и бонусы"
+  },
+  {
+   "slug": "lukoil",
+   "name": "Лукойл",
+   "cat": "life",
+   "desc": "Заправки и бонусы"
+  },
+  {
+   "slug": "rzd",
+   "name": "РЖД",
+   "cat": "life",
+   "desc": "Билеты на поезда"
+  },
+  {
+   "slug": "k-vrachu",
+   "name": "К врачу",
+   "cat": "life",
+   "desc": "Запись к врачу"
+  },
+  {
+   "slug": "medtochka",
+   "name": "МедТочка",
+   "cat": "life",
+   "desc": "Запись к врачу и медкарта"
+  },
+  {
+   "slug": "yandeks-dom-s-alisoy",
+   "name": "Яндекс Дом с Алисой",
+   "cat": "life",
+   "desc": "Умный дом и колонки с Алисой"
+  },
+  {
+   "slug": "cum",
+   "name": "ЦУМ",
+   "cat": "life",
+   "desc": "Одежда и аксессуары премиум-брендов"
+  },
+  {
+   "slug": "kenetic",
+   "name": "Keenetic",
+   "cat": "life",
+   "desc": "Настройка роутера Keenetic"
+  },
+  {
+   "slug": "dji-mimo",
+   "name": "DJI Mimo",
+   "cat": "life",
+   "desc": "Управление камерами DJI Osmo"
+  },
+  {
+   "slug": "chatgpt",
+   "name": "ChatGPT",
+   "cat": "ai",
+   "desc": "Ответы, тексты, фото"
+  },
+  {
+   "slug": "claude",
+   "name": "Claude",
+   "cat": "ai",
+   "desc": "Ассистент для работы и учёбы"
+  }
+ ],
+ "hidden": [
+  "v2ray",
+  "happ-plus"
+ ],
+ "sets": [
+  {
+   "id": "max10",
+   "name": "Максимальный",
+   "note": "Любые 10 — каждое по 199 ₽",
+   "apps": [
+    "sber",
+    "t-bank",
+    "vk",
+    "vk-music",
+    "kinopoisk",
+    "okko",
+    "avito",
+    "chatgpt",
+    "mts",
+    "eapteka"
+   ],
+   "featured": true
+  },
+  {
+   "id": "banks",
+   "name": "Банки",
+   "note": "Главные банки на одном iPhone",
+   "apps": [
+    "sber",
+    "vtb",
+    "t-bank",
+    "alfa-bank",
+    "pochta-bank"
+   ]
+  },
+  {
+   "id": "media",
+   "name": "Кино и музыка",
+   "note": "Фильмы, сериалы и музыка",
+   "apps": [
+    "okko",
+    "premier",
+    "ivi",
+    "kinopoisk",
+    "zvuk",
+    "vk-music",
+    "vk-video"
+   ]
+  },
+  {
+   "id": "vkall",
+   "name": "ВК целиком",
+   "note": "Соцсеть, музыка, видео и мессенджер",
+   "apps": [
+    "vk",
+    "vk-music",
+    "vk-video",
+    "vk-messenger"
+   ]
+  },
+  {
+   "id": "telecom",
+   "name": "Связь",
+   "note": "Кабинет оператора, почта и облако",
+   "apps": [
+    "mts",
+    "pochta-mail",
+    "oblako-mail"
+   ],
+   "operator": [
+    "mts",
+    "megafon",
+    "beeline",
+    "yota"
+   ]
+  },
+  {
+   "id": "life",
+   "name": "На каждый день",
+   "note": "Объявления, продукты, аптека, дороги",
+   "apps": [
+    "avito",
+    "yula",
+    "lenta",
+    "eapteka",
+    "avtodor",
+    "gazpromneft"
+   ]
+  }
+ ]
+}
