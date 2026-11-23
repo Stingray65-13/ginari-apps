@@ -142,7 +142,7 @@ async function getCatalog() {
       apps.push({ slug: r.slug, name: r.name || r.slug, cat: 'other', desc: '', icon: r.icon_url ? `/icon/${r.slug}` : null, available: r.available !== false });
     }
   }
-  const data = { tiers: CATALOG.tiers, maxApps: CATALOG.maxApps, categories: CATALOG.categories, sets: CATALOG.sets, apps, demo: DEMO, support: SUPPORT_TG };
+  const data = { tiers: CATALOG.tiers, maxApps: CATALOG.maxApps, maxTotal: CATALOG.maxTotal || 10000, categories: CATALOG.categories, sets: CATALOG.sets, apps, demo: DEMO, support: SUPPORT_TG };
   const ok = !EXAPP_KEY || !!remote;
   if (ok && remote) lastGood = data;
   catalogCache = { at: Date.now(), ttl: ok ? 10 * 60 * 1000 : 30 * 1000, data };
@@ -293,7 +293,7 @@ const server = http.createServer(async (req, res) => {
       const allowed = new Map(cat.apps.map((a) => [a.slug, a]));
       const apps = [...new Set(Array.isArray(body.apps) ? body.apps.map(String) : [])];
       if (!apps.length) return send(res, 400, { ok: false, message: 'Выберите хотя бы одно приложение.' });
-      if (apps.length > CATALOG.maxApps) return send(res, 400, { ok: false, message: `Не больше ${CATALOG.maxApps} приложений в одном заказе.` });
+      if (apps.length > CATALOG.maxApps) return send(res, 400, { ok: false, message: `В один заказ помещается до ${CATALOG.maxApps} приложений. Оформите этот заказ, а остальные приложения — вторым заказом.` });
       const bad = apps.filter((s) => !allowed.has(s) || !allowed.get(s).available);
       if (bad.length) return send(res, 400, { ok: false, message: 'Некоторые приложения сейчас недоступны. Обновите страницу.' });
       const contact = String(body.contact || '').trim().slice(0, 100);
@@ -301,6 +301,8 @@ const server = http.createServer(async (req, res) => {
       if (!body.agree) return send(res, 400, { ok: false, message: 'Нужно согласие с офертой.' });
 
       const unit = priceFor(apps.length);
+      const maxTotal = CATALOG.maxTotal || 10000;
+      if (unit * apps.length > maxTotal) return send(res, 400, { ok: false, message: `Сумма одного заказа — до ${maxTotal.toLocaleString('ru-RU')} ₽. Оформите этот заказ, а остальные приложения — вторым заказом.` });
       const order = {
         id: crypto.randomBytes(18).toString('base64url'),
         createdAt: new Date().toISOString(),

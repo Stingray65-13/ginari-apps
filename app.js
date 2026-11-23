@@ -65,8 +65,8 @@
           el('span', { class: 'muted small', text: n + ' × ' + rub(unitPrice(n)) }),
         ]),
         el('div', { class: 'set-actions' }, [
-          el('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Выбрать набор', onclick: function () { apps.forEach(function (s) { state.selected.add(s); }); changed(); openCheckout(); } }),
-          el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Изменить состав', onclick: function () { apps.forEach(function (s) { state.selected.add(s); }); changed(); $('#catalog').scrollIntoView(); } }),
+          el('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Выбрать набор', onclick: function () { addSet(apps); openCheckout(); } }),
+          el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Изменить состав', onclick: function () { addSet(apps); $('#catalog').scrollIntoView(); } }),
         ]),
       ]));
     });
@@ -76,7 +76,7 @@
   // ---------- первый экран ----------
   var heroIdx = 0;
   function setBySlug(id) { return state.data.sets.find(function (x) { return x.id === id; }); }
-  function addSet(apps) { apps.forEach(function (s) { if (state.selected.size < state.data.maxApps) state.selected.add(s); }); changed(); }
+  function addSet(apps) { for (var i = 0; i < apps.length; i++) { if (state.selected.has(apps[i])) continue; if (!canAdd()) break; state.selected.add(apps[i]); } changed(); }
   function renderMini(id, setId) {
     var b = $(id), set = setBySlug(setId); if (!b || !set) return;
     var apps = setApps(set), n = apps.length;
@@ -151,7 +151,7 @@
       var on = state.selected.has(a.slug);
       g.appendChild(el('button', {
         type: 'button', class: 'app', 'aria-pressed': String(on), disabled: a.available ? null : 'disabled',
-        onclick: function () { if (!a.available) return; if (on) state.selected.delete(a.slug); else if (state.selected.size < state.data.maxApps) state.selected.add(a.slug); changed(); },
+        onclick: function () { if (!a.available) return; if (on) state.selected.delete(a.slug); else if (canAdd()) state.selected.add(a.slug); changed(); },
       }, [
         icon(a),
         el('span', { class: 'app-txt' }, [el('b', {}, [a.name, a.badge ? el('span', { class: 'app-badge', text: a.badge }) : null]), el('span', { text: a.available ? (a.desc || '') : 'временно недоступно' })]),
@@ -183,6 +183,22 @@
     $('#cartHint').textContent = next ? 'Добавьте ещё ' + (next.from - c.n) + ' — и каждое будет по ' + rub(next.price) : 'Максимальная выгода';
   }
   function changed() { store(); renderApps(); renderTiers(); renderCart(); }
+
+  // ---------- лимит одного заказа (не показываем заранее, только при упоре) ----------
+  function limitFor(n) {
+    var maxApps = state.data.maxApps || 20, maxTotal = state.data.maxTotal || 10000;
+    if (n > maxApps) return 'В один заказ помещается до ' + maxApps + ' приложений. Оформите этот заказ, а остальные приложения — вторым заказом.';
+    if (unitPrice(n) * n > maxTotal) return 'Сумма одного заказа — до ' + rub(maxTotal) + '. Оформите этот заказ, а остальные приложения — вторым заказом.';
+    return '';
+  }
+  function canAdd() { var msg = limitFor(cart().n + 1); if (msg) { notice(msg); return false; } return true; }
+  var noticeTimer;
+  function notice(text) {
+    var n = $('#limitNotice');
+    if (!n) { n = el('div', { id: 'limitNotice', class: 'limit-notice', role: 'status' }); document.body.appendChild(n); }
+    n.textContent = text; n.classList.add('show');
+    clearTimeout(noticeTimer); noticeTimer = setTimeout(function () { n.classList.remove('show'); }, 5000);
+  }
 
   // ---------- оформление ----------
   function openCheckout() {

@@ -17,6 +17,7 @@
   }
  ],
  "maxApps": 20,
+ "maxTotal": 10000,
  "categories": [
   {
    "id": "banks",
