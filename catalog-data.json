@@ -12,12 +12,18 @@
   },
   {
    "from": 10,
-   "to": 20,
+   "to": 50,
    "price": 199
   }
  ],
- "maxApps": 20,
+ "maxApps": 50,
  "maxTotal": 10000,
+ "separate": [
+  "vtb",
+  "vtb-invest",
+  "alfa-bank"
+ ],
+ "pageSize": 20,
  "categories": [
   {
    "id": "banks",

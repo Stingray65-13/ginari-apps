@@ -10,21 +10,28 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Jost:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/styles.css?v=7">
+<link rel="stylesheet" href="/styles.css?v=8">
+<meta name="theme-color" content="#0C1214">
+<script src="/theme.js?v=8"></script>
+
 </head>
 <body>
 <button type="button" class="max-marquee" id="maxMarquee" aria-label="MAX на iPhone за пару минут — добавить MAX в заказ"><span class="mq-track" aria-hidden="true"><span class="mq-group"><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span></span><span class="mq-group"><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span><span class="mq-item"><img class="mq-ico" alt="" width="22" height="22" hidden><b>MAX на iPhone</b> за пару минут</span><span class="mq-dot">✦</span></span></span></button>
 
 <header class="top">
   <div class="wrap top-in">
-    <a href="/" class="brand" aria-label="Ginari — на главную"><img src="/logo-light.png" alt="ginari" height="28"></a>
+    <a href="/" class="brand" aria-label="Ginari — на главную"><img data-logo src="/logo-light.png" alt="ginari" height="28"></a>
     <nav class="top-nav">
       <a href="#sets">Наборы</a>
       <a href="#catalog">Приложения</a>
       <a href="#prices">Цены</a>
       <a href="#faq">Вопросы</a>
     </nav>
-    <a class="btn btn-glass btn-sm" id="supportTop" href="https://t.me/ginari_manager" target="_blank" rel="noopener">Поддержка</a>
+    <div class="top-act">
+      <a class="btn btn-glass btn-sm top-support" id="supportTop" href="https://t.me/ginari_manager" target="_blank" rel="noopener">Поддержка</a>
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Переключить тему"><svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
+      <a class="cart-btn" id="cartBtn" href="/cart" aria-label="Корзина"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 11.1a2 2 0 0 1-2 1.9H8.2a2 2 0 0 1-2-1.9L5 8z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg><span class="cb-txt">Корзина</span><i class="cart-badge" id="cartBadge" hidden>0</i></a>
+    </div>
   </div>
 </header>
 
@@ -114,11 +121,12 @@
 
 <footer class="foot">
   <div class="wrap foot-in">
-    <img src="/logo-light.png" alt="ginari" height="24">
+    <img data-logo src="/logo-light.png" alt="ginari" height="24">
     <p>Помощь с установкой приложений на iPhone. Страница установки открывается на сайте сразу после оплаты.</p>
     <p>Поддержка в Telegram: <a class="support-link" href="https://t.me/ginari_manager" target="_blank" rel="noopener">@ginari_manager</a></p>
     <p><a href="/offer">Публичная оферта</a> · <a href="/privacy">Политика обработки персональных данных</a> · <a href="/consent">Согласие на обработку данных</a></p>
     <p class="muted small">Названия и логотипы приложений принадлежат их правообладателям. Ginari не связан с Apple и разработчиками приложений.</p>
+    <div class="theme-switch" role="group" aria-label="Тема сайта"><span>Тема:</span><button type="button" data-theme-set="dark" aria-pressed="true">Тёмная</button><button type="button" data-theme-set="light" aria-pressed="false">Светлая</button></div>
     <p class="muted small">© 2026 Ginari · Mekbuda</p>
   </div>
 </footer>
@@ -133,26 +141,8 @@
   </div>
 </div>
 
-<dialog id="checkout" class="dlg">
-  <form method="dialog" id="checkoutForm" novalidate>
-    <button class="dlg-close" value="cancel" aria-label="Закрыть">×</button>
-    <h2>Ваш заказ</h2>
-    <ul class="chosen" id="chosenList"></ul>
-    <div class="sum-row"><span id="sumLine"></span><b id="sumTotal"></b></div>
-    <label class="field">Telegram или телефон для связи
-      <input name="contact" id="contact" required placeholder="@username или +7…" autocomplete="tel">
-    </label>
-    <label class="field">Email для чека <span class="muted">(необязательно)</span>
-      <input name="email" id="email" type="email" placeholder="you@mail.ru" autocomplete="email">
-    </label>
-    <label class="check"><input type="checkbox" id="agree"><span>Принимаю <a href="/offer" target="_blank">оферту</a>, <a href="/privacy" target="_blank">политику обработки данных</a> и даю <a href="/consent" target="_blank">согласие на обработку персональных данных</a></span></label>
-    <p class="err" id="checkoutErr" hidden></p>
-    <button class="btn btn-primary btn-wide" id="payBtn" type="button">Перейти к оплате</button>
-    <p class="muted small center">Установка откроется на этом сайте сразу после оплаты</p>
-  </form>
-</dialog>
 
-<script src="/metrika.js?v=7"></script>
-<script src="/app.js?v=7"></script>
+<script src="/metrika.js?v=8"></script>
+<script src="/app.js?v=8"></script>
 </body>
 </html>

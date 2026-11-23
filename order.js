@@ -37,6 +37,18 @@
       var head = '<div class="order-card"><h1>' + (done ? 'Готово — всё установлено' : expired ? 'Срок страницы истёк' : 'Можно устанавливать') + '</h1>' + summary(o) +
         (expired ? '<p>Если что-то не успели поставить — напишите в поддержку, продлим.</p>' + supportBtn(o) :
           '<ol class="tips"><li>Откройте эту страницу <b>на iPhone</b>, куда ставите приложения.</li><li>Входите в аккаунт <b>только в App Store</b> (раздел «Контент и покупки»), не в iCloud.</li><li>Ставьте сразу: страница действует около двух часов.</li></ol>') + '</div>';
+      var pages = o.pages || [];
+      if (pages.length > 1 || (pages.length === 1 && !o.embed)) {
+        var many = pages.length > 1;
+        var body = (many ? '<p class="pages-note">Приложения разделены на ' + pages.length + ' ' + (pages.length < 5 ? 'ссылки' : 'ссылок') + ': обычные — на общей странице, некоторые банки — на отдельных. Ставьте по очереди.</p>' : '') +
+          pages.map(function (pg, i) {
+            var title = many ? '<h2 class="page-title"><span>' + (i + 1) + '</span>Ссылка ' + (i + 1) + ' из ' + pages.length + '</h2><p class="muted page-apps">' + pg.apps.map(esc).join(' · ') + '</p>' : '';
+            var inner = pg.embed ? '<iframe class="embed" src="' + esc(pg.embed) + '" title="Установка приложений, ссылка ' + (i + 1) + '" allow="clipboard-write"></iframe>'
+              : '<div class="demo-box"><b>Демо-режим</b><p>Здесь появится страница установки: данные для входа, таймер, код подтверждения. Сейчас оплата не подключена, поэтому настоящая установка не создаётся.</p></div>';
+            return '<section class="install-page">' + title + inner + '</section>';
+          }).join('');
+        return h(head + body + '<p class="muted small center" style="margin-top:14px">Сохраните ссылку на эту страницу — по ней можно вернуться к установке.</p>');
+      }
       if (o.demo) return h(head + '<div class="demo-box"><b>Демо-режим</b><p>Здесь появится установка в стиле Ginari: данные для входа, таймер, код подтверждения и кнопки. Сейчас оплата не подключена, поэтому настоящая установка не создаётся.</p></div>');
       if (!o.embed) return h(head + supportBtn(o));
       return h(head + '<iframe class="embed" src="' + esc(o.embed) + '" title="Установка приложений" allow="clipboard-write"></iframe>' +

@@ -1,6 +1,7 @@
 (function () {
   'use strict';
   var $ = function (s, r) { return (r || document).querySelector(s); };
+  window.__ginariCart = true;
   var state = { data: null, selected: new Set(), cat: 'all', q: '', ops: {} };
   var COLORS = { net: '#3B4A5A', other: '#5A6468', gov: '#2C5AA0', banks: '#1E5963', social: '#2F4A6D', media: '#B56A52', telecom: '#4F6B5B', life: '#7A6450', ai: '#0B0F10' };
   var rub = function (n) { return n.toLocaleString('ru-RU') + ' ₽'; };
@@ -172,17 +173,117 @@
   function cart() {
     var sel = [...state.selected].filter(function (s) { var a = appBySlug(s); return a && a.available; });
     var n = sel.length, u = n ? unitPrice(n) : basePrice();
-    return { slugs: sel, n: n, unit: u, total: u * n };
+    return { slugs: sel, n: n, unit: u, total: u * n, full: basePrice() * n };
+  }
+  // как exapplication разложит заказ по ссылкам: обычные — общая страница (до pageSize), особые — отдельные
+  function linkPlan(slugs) {
+    var sep = state.data.separate || [], size = state.data.pageSize || 20;
+    var special = slugs.filter(function (s) { return sep.indexOf(s) >= 0; });
+    var common = slugs.length - special.length, commonPages = Math.ceil(common / size);
+    return { common: common, commonPages: commonPages, special: special, total: commonPages + special.length };
+  }
+  function renderBadge(c) {
+    var b = $('#cartBadge'); if (!b) return;
+    var prev = +b.textContent || 0;
+    b.textContent = c.n; b.hidden = !c.n;
+    var cb = $('#cartBtn');
+    if (cb && c.n > prev && renderBadge.ready) { cb.classList.remove('bump'); void cb.offsetWidth; cb.classList.add('bump'); }
+    renderBadge.ready = true;
+    var btn = $('#cartBtn'); if (btn) btn.setAttribute('aria-label', 'Корзина: ' + appsWord(c.n));
   }
   function renderCart() {
-    var c = cart(), bar = $('#cartbar');
-    bar.hidden = c.n === 0;
-    $('#cartCount').textContent = appsWord(c.n) + ' · по ' + rub(c.unit);
-    $('#checkoutBtn').textContent = 'Оформить · ' + rub(c.total);
-    var next = state.data.tiers.find(function (t) { return t.from > c.n; });
-    $('#cartHint').textContent = next ? 'Добавьте ещё ' + (next.from - c.n) + ' — и каждое будет по ' + rub(next.price) : 'Максимальная выгода';
+    var c = cart();
+    renderBadge(c);
+    var bar = $('#cartbar');
+    if (bar) {
+      bar.hidden = c.n === 0;
+      $('#cartCount').textContent = appsWord(c.n) + ' · по ' + rub(c.unit);
+      $('#checkoutBtn').textContent = 'Оформить · ' + rub(c.total);
+      var next = state.data.tiers.find(function (t) { return t.from > c.n; });
+      $('#cartHint').textContent = next ? 'Добавьте ещё ' + (next.from - c.n) + ' — и каждое будет по ' + rub(next.price) : 'Максимальная выгода';
+    }
+    renderCartPage();
   }
   function changed() { store(); renderApps(); renderTiers(); renderCart(); }
+
+  // ---------- страница корзины /cart ----------
+  var SUGGEST = ['max', 'sber', 't-bank', 'gosuslugi', 'vtb', 'alfa-bank', 'ozon-bank', 'vk', 'avito', 'chatgpt', 'kinopoisk'];
+  function suggestNote(a) {
+    if (a.slug === 'max') return 'Мессенджер, которого нет в App Store';
+    if (a.cat === 'banks') return 'Ещё один банк — на всякий случай';
+    if (a.slug === 'gosuslugi') return 'Документы, штрафы, запись к врачу';
+    return a.desc || '';
+  }
+  function renderCartPage() {
+    var root = $('#cartPage'); if (!root) return;
+    var c = cart(), has = c.n > 0;
+    $('#cartEmpty').hidden = has;
+    root.querySelectorAll('.cart-needs-items').forEach(function (x) { x.hidden = !has; });
+
+    // состав
+    var list = $('#cartList'); list.innerHTML = '';
+    c.slugs.forEach(function (s) {
+      var a = appBySlug(s);
+      list.appendChild(el('li', { class: 'ci' }, [
+        icon(a),
+        el('span', { class: 'ci-txt' }, [el('b', { text: a.name }), el('span', { text: '1 iPhone' })]),
+        el('b', { class: 'ci-price', text: rub(c.unit) }),
+        el('button', { type: 'button', class: 'ci-del', 'aria-label': 'Убрать ' + a.name, text: '×', onclick: function () { state.selected.delete(s); changed(); } }),
+      ]));
+    });
+
+    // ссылки
+    var p = linkPlan(c.slugs), parts = [];
+    if (p.common) parts.push((p.commonPages > 1 ? p.commonPages + ' общие на ' : 'общая на ') + appsWord(p.common));
+    if (p.special.length) parts.push((p.special.length > 1 ? 'отдельные на ' : 'отдельная на ') + p.special.map(function (s) { return appBySlug(s).name; }).join(', '));
+    $('#linksCount').textContent = p.total;
+    $('#linksWord').textContent = plural(p.total, 'ссылку', 'ссылки', 'ссылок');
+    $('#linksSub').textContent = parts.join(' + ');
+
+    // цена
+    $('#priceNow').textContent = rub(c.unit);
+    var next = state.data.tiers.find(function (t) { return t.from > c.n; });
+    var hint = $('#priceHint'); hint.innerHTML = '';
+    if (next && has) {
+      var nn = next.from;
+      hint.append('Добавьте ещё ' + appsWord(next.from - c.n) + ' — каждое станет по ', el('b', { text: rub(next.price) }),
+        '. ' + appsWord(nn) + ': ' + rub(next.price * nn) + ' вместо ' + rub(c.unit * nn) + ' — на ' + rub(c.unit * nn - next.price * nn) + ' меньше');
+    } else if (has) {
+      hint.append('Лучшая цена: ', el('b', { text: rub(c.unit) }), ' за каждое' + (c.full > c.total ? '. Экономия ' + rub(c.full - c.total) : ''));
+    }
+    var tiers = $('#cartTiers'); tiers.innerHTML = '';
+    state.data.tiers.forEach(function (x) {
+      var label = x.to >= state.data.maxApps ? 'от ' + x.from + ' приложений' : x.from + '–' + x.to + ' ' + plural(x.to, 'приложение', 'приложения', 'приложений');
+      var on = c.n >= x.from && c.n <= x.to;
+      tiers.appendChild(el('div', { class: 'ct' + (on ? ' on' : c.n > x.to ? ' past' : '') }, [el('i', { 'aria-hidden': 'true' }), el('b', { text: rub(x.price) }), el('span', { text: label })]));
+    });
+    $('#selCount').textContent = appsWord(c.n);
+    $('#selTotal').textContent = rub(c.total);
+
+    // с этим часто берут
+    var sg = $('#suggest'); sg.innerHTML = '';
+    SUGGEST.filter(function (s) { var a = appBySlug(s); return a && a.available && !state.selected.has(s); }).slice(0, 3).forEach(function (s) {
+      var a = appBySlug(s), price = unitPrice(c.n + 1);
+      sg.appendChild(el('div', { class: 'sg' }, [
+        icon(a), el('b', { text: a.name }), el('span', { class: 'muted small', text: suggestNote(a) }),
+        el('div', { class: 'sg-foot' }, [el('span', { text: rub(price) }),
+          el('button', { type: 'button', class: 'round', 'aria-label': 'Добавить ' + a.name, text: '+', onclick: function () { if (canAdd()) { state.selected.add(s); changed(); } } })]),
+      ]));
+    });
+    $('#suggestWrap').hidden = !sg.children.length || !has;
+
+    // к оплате
+    $('#payCount').textContent = appsWord(c.n);
+    $('#payTotal').textContent = rub(c.total);
+    var saveSum = c.full - c.total;
+    $('#paySave').textContent = saveSum > 0 ? 'экономия ' + rub(saveSum) : '';
+    var rows = $('#payRows'); rows.innerHTML = '';
+    var row = function (l, r, cls) { rows.appendChild(el('div', { class: 'pr' + (cls ? ' ' + cls : '') }, [el('span', { text: l }), el('b', { text: r })])); };
+    row(appsWord(c.n), 'по ' + rub(c.unit));
+    if (saveSum > 0) { row('Без скидки', rub(c.full)); row('Скидка за количество', '−' + rub(saveSum), 'good'); }
+    var btn = $('#payBtn');
+    if (!btn.dataset.busy) { btn.disabled = !has; btn.textContent = has ? 'Оплатить ' + rub(c.total) : 'Корзина пуста'; }
+  }
 
   // ---------- лимит одного заказа (не показываем заранее, только при упоре) ----------
   function limitFor(n) {
@@ -201,24 +302,16 @@
   }
 
   // ---------- оформление ----------
-  function openCheckout() {
-    var c = cart(); if (!c.n) return;
-    var ul = $('#chosenList'); ul.innerHTML = '';
-    c.slugs.forEach(function (s) { ul.appendChild(el('li', { text: appBySlug(s).name })); });
-    $('#sumLine').textContent = appsWord(c.n) + ' × ' + rub(c.unit);
-    $('#sumTotal').textContent = rub(c.total);
-    $('#checkoutErr').hidden = true;
-    $('#payBtn').textContent = 'Оплатить ' + rub(c.total);
-    var d = $('#checkout'); if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
-    goal('checkout_open');
-  }
+  function openCheckout() { store(); if (location.pathname !== '/cart') location.href = '/cart'; }
   function showErr(t) { var e = $('#checkoutErr'); e.textContent = t; e.hidden = false; }
   async function pay() {
     var c = cart(), btn = $('#payBtn');
+    if (!c.n) return;
+    $('#checkoutErr').hidden = true;
     var contact = $('#contact').value.trim();
     if (contact.length < 3) return showErr('Оставьте Telegram или телефон — напишем, если что-то пойдёт не так.');
     if (!$('#agree').checked) return showErr('Нужно согласие с офертой.');
-    btn.disabled = true; btn.textContent = 'Создаём платёж…';
+    btn.disabled = true; btn.dataset.busy = '1'; btn.textContent = 'Создаём платёж…';
     try {
       var r = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apps: c.slugs, contact: contact, email: $('#email').value.trim(), agree: true }) });
       var j = await r.json();
@@ -226,7 +319,7 @@
       state.selected.clear(); store();
       goal('order_create');
       setTimeout(function () { location.href = j.redirect; }, 250);
-    } catch (e) { showErr(e.message); btn.disabled = false; btn.textContent = 'Оплатить ' + rub(c.total); }
+    } catch (e) { showErr(e.message); delete btn.dataset.busy; btn.disabled = false; btn.textContent = 'Оплатить ' + rub(c.total); }
   }
 
   // ---------- старт ----------
@@ -240,12 +333,13 @@
     var mq = $('#maxMarquee'); if (mq) mq.addEventListener('click', function () { buyMax('max_banner'); });
     document.querySelectorAll('.js-buy-max').forEach(function (b) { b.addEventListener('click', function () { buyMax('max_cta'); }); });
     var add = (location.search.match(/[?&]add=([a-z0-9-]+)/) || [])[1];
-    if (add && appBySlug(add)) { addSet([add]); setTimeout(openCheckout, 300); }
+    if (add && appBySlug(add)) { addSet([add]); openCheckout(); }
     if (state.data.support) document.querySelectorAll('a[href^="https://t.me/"]').forEach(function (a) { a.href = 'https://t.me/' + state.data.support; if (a.id === 'supportFaq') a.textContent = '@' + state.data.support; });
     renderHero(); renderMini('#miniA', 'banks'); renderMini('#miniB', 'media'); renderSets(); renderTiers(); renderCats(); renderApps(); renderCart();
     if ($('#search')) $('#search').addEventListener('input', function (e) { state.q = e.target.value; state.cat = 'all'; renderCats(); renderApps(); });
-    $('#checkoutBtn').addEventListener('click', openCheckout);
-    $('#payBtn').addEventListener('click', pay);
+    if ($('#checkoutBtn')) $('#checkoutBtn').addEventListener('click', openCheckout);
+    if ($('#payBtn')) $('#payBtn').addEventListener('click', pay);
+    if ($('#cartPage') && cart().n) goal('checkout_open');
   }
   init();
 })();

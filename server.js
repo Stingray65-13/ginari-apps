@@ -57,6 +57,18 @@ const byTx = (txId) => Object.values(orders).find((o) => o.platega && o.platega.
 // ---------- утилиты ----------
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
+// Как exapplication выдаёт ссылки: обычные приложения — на общей странице (до pageSize штук),
+// «особые» (ВТБ, ВТБ Инвестиции, Альфа-Банк) — каждое на отдельной странице.
+function groupApps(apps) {
+  const sep = new Set(CATALOG.separate || []);
+  const size = CATALOG.pageSize || 20;
+  const common = apps.filter((s) => !sep.has(s));
+  const groups = [];
+  for (let i = 0; i < common.length; i += size) groups.push(common.slice(i, i + size));
+  apps.filter((s) => sep.has(s)).forEach((s) => groups.push([s]));
+  return groups;
+}
+
 function priceFor(count) {
   const t = CATALOG.tiers.find((x) => count >= x.from && count <= x.to) || CATALOG.tiers[CATALOG.tiers.length - 1];
   return t.price;
@@ -142,7 +154,7 @@ async function getCatalog() {
       apps.push({ slug: r.slug, name: r.name || r.slug, cat: 'other', desc: '', icon: r.icon_url ? `/icon/${r.slug}` : null, available: r.available !== false });
     }
   }
-  const data = { tiers: CATALOG.tiers, maxApps: CATALOG.maxApps, maxTotal: CATALOG.maxTotal || 10000, categories: CATALOG.categories, sets: CATALOG.sets, apps, demo: DEMO, support: SUPPORT_TG };
+  const data = { tiers: CATALOG.tiers, maxApps: CATALOG.maxApps, maxTotal: CATALOG.maxTotal || 10000, separate: CATALOG.separate || [], pageSize: CATALOG.pageSize || 20, categories: CATALOG.categories, sets: CATALOG.sets, apps, demo: DEMO, support: SUPPORT_TG };
   const ok = !EXAPP_KEY || !!remote;
   if (ok && remote) lastGood = data;
   catalogCache = { at: Date.now(), ttl: ok ? 10 * 60 * 1000 : 30 * 1000, data };
@@ -199,33 +211,45 @@ async function checkPayment(order) {
 }
 
 // ---------- exapplication ----------
+async function createPage(order, idx, apps) {
+  const rid = `${order.id}.${idx}`;
+  const r = await fetch(`${EXAPP_API}/pages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${EXAPP_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': rid },
+    body: JSON.stringify({ apps, external_id: rid, request_id: rid }),
+  });
+  const j = await r.json().catch(() => ({}));
+  return { r, j };
+}
+
 async function fulfill(order) {
-  if (order.exapp && order.exapp.token) return;
+  if (order.exapp && order.exapp.token) return;               // старые заказы — одна страница
   if (order.fulfilling) return;
   order.fulfilling = true;
   try {
+    if (!order.pages) order.pages = groupApps(order.apps).map((apps) => ({ apps }));
     if (DEMO) {
-      order.exapp = { token: 'demo', demo: true };
+      order.pages.forEach((pg) => { pg.token = 'demo'; pg.demo = true; });
       order.status = 'ready'; save(); return;
     }
-    const r = await fetch(`${EXAPP_API}/pages`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${EXAPP_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': order.id },
-      body: JSON.stringify({ apps: order.apps, external_id: order.id, request_id: order.id }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (r.ok && j.token) {
-      order.exapp = { token: j.token, url: j.url, expiresAt: j.expires_at, charged: j.charged, balanceAfter: j.balance_after };
-      order.status = 'ready'; save();
-      log('fulfilled', order.id, j.charged, j.balance_after);
+    for (let i = 0; i < order.pages.length; i++) {
+      const pg = order.pages[i];
+      if (pg.token) continue;
+      const { r, j } = await createPage(order, i, pg.apps);
+      if (r.ok && j.token) {
+        Object.assign(pg, { token: j.token, url: j.url, expiresAt: j.expires_at, charged: j.charged });
+        save(); log('page created', order.id, i, j.charged, j.balance_after);
+        continue;
+      }
+      order.attempts = (order.attempts || 0) + 1;
+      order.error = `${r.status} ${j.error || ''} ${j.message || ''}`.trim();
+      if (r.status === 402 || order.attempts >= 3) {
+        order.status = 'needs_attention'; save();
+        tg(`🚨 Заказ ${order.id.slice(0, 8)} оплачен, но установка создана не полностью (${order.pages.filter((x) => x.token).length} из ${order.pages.length}): ${order.error}.\n${r.status === 402 ? 'Пополни баланс exapplication — остальное создастся само при следующей проверке.' : 'Проверь вручную.'}\nКонтакт клиента: ${order.contact}`);
+      } else { save(); }
       return;
     }
-    order.attempts = (order.attempts || 0) + 1;
-    order.error = `${r.status} ${j.error || ''} ${j.message || ''}`.trim();
-    if (r.status === 402 || order.attempts >= 3) {
-      order.status = 'needs_attention'; save();
-      tg(`🚨 Заказ ${order.id.slice(0, 8)} оплачен, но установка НЕ создана: ${order.error}.\n${r.status === 402 ? 'Пополни баланс exapplication — заказ создастся сам при следующей проверке.' : 'Проверь вручную.'}\nКонтакт клиента: ${order.contact}`);
-    } else { save(); }
+    order.status = 'ready'; save();
   } catch (e) {
     order.attempts = (order.attempts || 0) + 1; order.error = e.message; save();
     log('fulfill error', order.id, e.message);
@@ -235,7 +259,7 @@ async function fulfill(order) {
 // ---------- статика ----------
 const STATIC = {
   '/': 'index.html', '/index.html': 'index.html',
-  '/max': 'max.html', '/metrika.js': 'metrika.js',
+  '/max': 'max.html', '/cart': 'cart.html', '/metrika.js': 'metrika.js', '/theme.js': 'theme.js',
   '/offer': 'offer.html', '/privacy': 'privacy.html', '/consent': 'consent.html',
   '/app.js': 'app.js', '/order.js': 'order.js', '/styles.css': 'styles.css',
   '/catalog-data.json': 'catalog-data.json',
@@ -342,7 +366,12 @@ const server = http.createServer(async (req, res) => {
         ok: true, status: order.status, apps: names, unit: order.unit, total: order.total,
         payRedirect: order.status === 'awaiting_payment' && order.platega ? order.platega.redirect : null,
         embed: order.status === 'ready' && order.exapp && !order.exapp.demo ? `https://exapplication.ru/papi/v1/embed/${order.exapp.token}` : null,
-        demo: !!(order.exapp && order.exapp.demo),
+        pages: order.status === 'ready' || order.status === 'needs_attention' ? (order.pages || []).filter((pg) => pg.token).map((pg) => ({
+          apps: pg.apps.map((s) => (META.get(s) || { name: s }).name),
+          embed: pg.demo ? null : `https://exapplication.ru/papi/v1/embed/${pg.token}`,
+          status: pg.installStatus || null,
+        })) : [],
+        demo: !!((order.exapp && order.exapp.demo) || (order.pages || []).some((pg) => pg.demo)),
         installStatus: order.installStatus || null,
         support: SUPPORT_TG,
       });
@@ -369,10 +398,14 @@ const server = http.createServer(async (req, res) => {
       send(res, 200, { ok: true });
       let ev = {}; try { ev = JSON.parse(raw.toString('utf8')); } catch {}
       if (ev.event === 'balance.low') { tg(`💰 Баланс exapplication ниже порога: ${ev.balance} ₽. Пополни, иначе новые заказы не создадутся.`); return; }
-      const order = ev.external_id && orders[ev.external_id];
+      const [oid, pidx] = String(ev.external_id || '').split('.');
+      const order = oid && orders[oid];
       if (order) {
-        order.installStatus = ev.event; save();
-        if (ev.event === 'page.done') tg(`✅ Заказ ${order.id.slice(0, 8)}: клиент всё установил.`);
+        const pg = order.pages && pidx != null ? order.pages[Number(pidx)] : null;
+        if (pg) pg.installStatus = ev.event;
+        const all = order.pages ? order.pages.every((x) => x.installStatus === 'page.done') : true;
+        order.installStatus = pg && ev.event === 'page.done' && !all ? 'page.code' : ev.event; save();
+        if (order.installStatus === 'page.done') tg(`✅ Заказ ${order.id.slice(0, 8)}: клиент всё установил.`);
         if (ev.event === 'page.expired') tg(`⌛ Заказ ${order.id.slice(0, 8)}: страница истекла. Контакт: ${order.contact}`);
       }
       return;
