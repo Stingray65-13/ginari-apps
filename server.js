@@ -122,7 +122,92 @@ function rateLimited(ip, max = 10, windowMs = 10 * 60 * 1000) {
 let catalogCache = { at: 0, ttl: 0, data: null };
 let lastGood = null;
 const iconSrc = new Map();   // slug -> адрес иконки в exapplication
+const iconName = new Map();  // slug -> название (для поиска иконки в App Store)
 const iconCache = new Map(); // slug -> { type, buf }
+const iconMiss = new Map();  // slug -> время неудачи (повтор через 20 минут)
+const iconPending = new Map();
+const ICON_DIR = DATA_DIR ? path.join(DATA_DIR, 'icons') : null;
+if (ICON_DIR) try { fs.mkdirSync(ICON_DIR, { recursive: true }); } catch (e) {}
+
+function absIconUrl(u) {
+  if (!u || typeof u !== 'string') return null;
+  try { const x = new URL(u.trim(), 'https://exapplication.ru/'); if (x.protocol === 'http:') x.protocol = 'https:'; return x.protocol === 'https:' ? x.href : null; } catch (e) { return null; }
+}
+function sniffType(buf) {
+  if (buf[0] === 0x89 && buf[1] === 0x50) return 'image/png';
+  if (buf[0] === 0xff && buf[1] === 0xd8) return 'image/jpeg';
+  if (buf.slice(0, 4).toString() === 'RIFF' && buf.slice(8, 12).toString() === 'WEBP') return 'image/webp';
+  if (buf.slice(0, 3).toString() === 'GIF') return 'image/gif';
+  const head = buf.slice(0, 300).toString('utf8').trim().toLowerCase();
+  if (head.startsWith('<svg') || (head.startsWith('<?xml') && head.includes('<svg'))) return 'image/svg+xml';
+  return null;
+}
+async function fetchImage(url, headers) {
+  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (GinariIcons)', Accept: 'image/*,*/*;q=0.5', ...(headers || {}) }, signal: AbortSignal.timeout(8000), redirect: 'follow' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const buf = Buffer.from(await r.arrayBuffer());
+  if (buf.length < 50 || buf.length > 3 * 1024 * 1024) throw new Error('size ' + buf.length);
+  const type = sniffType(buf); // по содержимому, а не по заголовку — некоторые CDN отдают картинки как octet-stream
+  if (!type) throw new Error('not an image (' + (r.headers.get('content-type') || '?') + ')');
+  return { type, buf };
+}
+const norm = (t) => String(t || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, '');
+// запасной вариант: иконка из App Store (США/Казахстан — в российском магазине этих приложений как раз нет)
+async function appStoreIcon(name) {
+  const q = norm(name); if (!q) return null;
+  for (const country of ['us', 'kz', 'ru']) {
+    try {
+      const r = await fetch(`https://itunes.apple.com/search?entity=software&limit=10&country=${country}&term=${encodeURIComponent(name)}`, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) continue;
+      const list = ((await r.json()).results || []);
+      // строгое совпадение: точно то же название или «Название: …» / «Название Messenger» (для коротких имён — только точное)
+      const low = String(name).toLowerCase().replace(/ё/g, 'е').trim();
+      const hit = list.find((a) => norm(a.trackName) === q)
+        || (q.length >= 4 && list.find((a) => { const t = String(a.trackName || '').toLowerCase().replace(/ё/g, 'е'); return t.startsWith(low) && /^[\s:\-–—|,.(]/.test(t.slice(low.length)); }));
+      const art = hit && (hit.artworkUrl512 || hit.artworkUrl100);
+      if (art) return await fetchImage(art.replace(/\/\d+x\d+bb\./, '/256x256bb.'));
+    } catch (e) { /* пробуем следующую страну */ }
+  }
+  return null;
+}
+function iconFile(slug) { return ICON_DIR ? path.join(ICON_DIR, slug + '.bin') : null; }
+function loadIconFromDisk(slug) {
+  const f = iconFile(slug); if (!f) return null;
+  try { const buf = fs.readFileSync(f); const type = sniffType(buf); return type ? { type, buf } : null; } catch (e) { return null; }
+}
+async function resolveIcon(slug) {
+  if (iconCache.has(slug)) return iconCache.get(slug);
+  if (iconPending.has(slug)) return iconPending.get(slug);
+  const job = (async () => {
+    const disk = loadIconFromDisk(slug);
+    if (disk) { iconCache.set(slug, disk); return disk; }
+    const miss = iconMiss.get(slug); if (miss && Date.now() - miss < 20 * 60 * 1000) return null;
+    let ic = null; const src = absIconUrl(iconSrc.get(slug)); const errs = [];
+    if (src) {
+      try { ic = await fetchImage(src); } catch (e) { errs.push('exapp ' + e.message); }
+      if (!ic && EXAPP_KEY && new URL(src).hostname.endsWith('exapplication.ru')) {
+        try { ic = await fetchImage(src, { Authorization: `Bearer ${EXAPP_KEY}` }); } catch (e) { errs.push('exapp+key ' + e.message); }
+      }
+    }
+    const over = absIconUrl((CATALOG.iconOverrides || {})[slug]);
+    if (!ic && over) { try { ic = await fetchImage(over); } catch (e) { errs.push('override ' + e.message); } }
+    if (!ic) { try { ic = await appStoreIcon(iconName.get(slug) || (META.get(slug) || {}).name || slug); if (!ic) errs.push('appstore: не найдено'); } catch (e) { errs.push('appstore ' + e.message); } }
+    if (ic) {
+      iconCache.set(slug, ic); iconMiss.delete(slug);
+      const f = iconFile(slug); if (f) fs.writeFile(f, ic.buf, () => {});
+    } else { iconMiss.set(slug, Date.now()); log('icon missing', slug, src || '(нет icon_url)', errs.join('; ')); }
+    return ic;
+  })();
+  iconPending.set(slug, job);
+  try { return await job; } finally { iconPending.delete(slug); }
+}
+// после обновления каталога заранее подтягиваем недостающие иконки, по одной
+let warming = false;
+async function warmIcons(slugs) {
+  if (warming) return; warming = true;
+  try { for (const s of slugs) if (!iconCache.has(s)) await resolveIcon(s).catch(() => {}); } finally { warming = false; }
+}
+
 async function getCatalog() {
   if (catalogCache.data && Date.now() - catalogCache.at < catalogCache.ttl) return catalogCache.data;
   let remote = null;
@@ -144,19 +229,23 @@ async function getCatalog() {
   for (const m of CATALOG.apps) {
     const r = avail.get(m.slug);
     if (remote && !r) continue; // в их каталоге больше нет
-    if (r && r.icon_url) iconSrc.set(m.slug, r.icon_url);
-    apps.push({ ...m, icon: iconSrc.has(m.slug) ? `/icon/${m.slug}` : null, available: r ? r.available !== false : true });
+    const iu = r && (r.icon_url || r.icon || r.iconUrl || r.image);
+    if (iu) iconSrc.set(m.slug, iu);
+    iconName.set(m.slug, (r && r.name) || m.name);
+    apps.push({ ...m, icon: `/icon/${m.slug}`, available: r ? r.available !== false : true });
   }
   // новые приложения, которых нет в нашем списке
   for (const r of remote || []) {
     if (!META.has(r.slug) && !CATALOG.hidden.includes(r.slug)) {
-      if (r.icon_url) iconSrc.set(r.slug, r.icon_url);
-      apps.push({ slug: r.slug, name: r.name || r.slug, cat: 'other', desc: '', icon: r.icon_url ? `/icon/${r.slug}` : null, available: r.available !== false });
+      const iu = r.icon_url || r.icon || r.iconUrl || r.image;
+      if (iu) iconSrc.set(r.slug, iu);
+      iconName.set(r.slug, r.name || r.slug);
+      apps.push({ slug: r.slug, name: r.name || r.slug, cat: 'other', desc: '', icon: `/icon/${r.slug}`, available: r.available !== false });
     }
   }
   const data = { tiers: CATALOG.tiers, maxApps: CATALOG.maxApps, maxTotal: CATALOG.maxTotal || 10000, separate: CATALOG.separate || [], pageSize: CATALOG.pageSize || 20, categories: CATALOG.categories, sets: CATALOG.sets, apps, demo: DEMO, support: SUPPORT_TG };
   const ok = !EXAPP_KEY || !!remote;
-  if (ok && remote) lastGood = data;
+  if (ok && remote) { lastGood = data; setTimeout(() => warmIcons(apps.map((a) => a.slug)), 1000); }
   catalogCache = { at: Date.now(), ttl: ok ? 10 * 60 * 1000 : 30 * 1000, data };
   return data;
 }
@@ -293,18 +382,11 @@ const server = http.createServer(async (req, res) => {
     const im = p.match(/^\/icon\/([a-z0-9-]{1,40})$/);
     if (req.method === 'GET' && im) {
       const slug = im[1];
-      if (!iconSrc.size) await getCatalog();
-      let ic = iconCache.get(slug);
-      const src = iconSrc.get(slug);
-      if (!ic && src && /^https:\/\/exapplication\.ru\//.test(src)) {
-        try {
-          const r = await fetch(src);
-          const type = r.headers.get('content-type') || 'image/png';
-          if (r.ok && /^image\//.test(type)) { ic = { type, buf: Buffer.from(await r.arrayBuffer()) }; iconCache.set(slug, ic); }
-        } catch (e) { log('icon error', slug, e.message); }
-      }
+      if (!iconName.has(slug)) await getCatalog();
+      if (!iconName.has(slug) && !META.has(slug)) return send(res, 404, 'Not found');
+      const ic = await resolveIcon(slug);
       if (!ic) return send(res, 404, 'Not found');
-      res.writeHead(200, { 'Content-Type': ic.type, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' });
+      res.writeHead(200, { 'Content-Type': ic.type, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" });
       return res.end(ic.buf);
     }
 
