@@ -16,7 +16,9 @@ const EXAPP_WEBHOOK_SECRET = env.EXAPP_WEBHOOK_SECRET || '';
 const EXAPP_API = 'https://exapplication.ru/papi/v1';
 const PLATEGA_MERCHANT_ID = env.PLATEGA_MERCHANT_ID || '';
 const PLATEGA_SECRET = env.PLATEGA_SECRET || '';
-const PLATEGA_API = (env.PLATEGA_API || 'https://app.platega.io').replace(/\/$/, '');
+const PLATEGA_API = (env.PLATEGA_API || 'https://api.payplatform.cc').replace(/\/$/, '');
+// способ оплаты: 2 — СБП (по умолчанию), all — платёжная страница с выбором способа (СБП, карта, крипта…)
+const PLATEGA_METHOD = (env.PLATEGA_METHOD || '2').trim();
 const TG_BOT_TOKEN = env.TG_BOT_TOKEN || '';
 const TG_CHAT_ID = env.TG_CHAT_ID || '';
 const SUPPORT_TG = env.SUPPORT_TG || 'ginari_manager';
@@ -251,40 +253,59 @@ async function getCatalog() {
 }
 
 // ---------- Platega ----------
+// Platega требует metadata.user_email — постоянный идентификатор покупателя.
+// Есть email — передаём его; нет — стабильный ID из контакта (один и тот же для одного покупателя), как велит их инструкция.
+function buyerEmail(order) {
+  const e = String(order.email || '').trim().toLowerCase();
+  if (/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(e)) return e;
+  const c = String(order.contact || '').trim().toLowerCase().replace(/^https?:\/\/t\.me\//, '@').replace(/[\s()-]/g, '');
+  return 'g' + crypto.createHash('sha256').update(c || order.id).digest('hex').slice(0, 16) + '@mail.ru';
+}
 async function plategaCreate(order) {
-  const r = await fetch(`${PLATEGA_API}/v2/transaction/process`, {
+  const universal = PLATEGA_METHOD === 'all';
+  const body = {
+    ...(universal ? {} : { paymentMethod: Number(PLATEGA_METHOD) || 2 }),
+    paymentDetails: { amount: order.total, currency: 'RUB' },
+    description: `Установка приложений на iPhone (${order.apps.length} шт.), заказ ${order.id.slice(0, 8)}`,
+    return: `${BASE_URL}/order/${order.id}`,
+    failedUrl: `${BASE_URL}/order/${order.id}?fail=1`,
+    payload: order.id,
+    metadata: { user_email: buyerEmail(order) },
+  };
+  const r = await fetch(`${PLATEGA_API}${universal ? '/v2' : ''}/transaction/process`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-MerchantId': PLATEGA_MERCHANT_ID, 'X-Secret': PLATEGA_SECRET },
-    body: JSON.stringify({
-      paymentDetails: { amount: order.total, currency: 'RUB' },
-      description: `Установка приложений на iPhone (${order.apps.length} шт.), заказ ${order.id.slice(0, 8)}`,
-      return: `${BASE_URL}/order/${order.id}`,
-      failedUrl: `${BASE_URL}/order/${order.id}?fail=1`,
-      payload: order.id,
-    }),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(20000),
   });
   const text = await r.text();
   let j; try { j = JSON.parse(text); } catch { j = { raw: text }; }
-  if (!r.ok || !j.redirect) throw new Error(`platega ${r.status}: ${text.slice(0, 300)}`);
-  return j;
+  const url = j.redirect || j.url; // /transaction/process отдаёт redirect, /v2/transaction/process — url
+  if (!r.ok || !j.transactionId || !url) throw new Error(`platega ${r.status}: ${text.slice(0, 300)}`);
+  return { transactionId: j.transactionId, redirect: url };
 }
-
 async function plategaStatus(txId) {
   const r = await fetch(`${PLATEGA_API}/transaction/${encodeURIComponent(txId)}`, {
     headers: { 'X-MerchantId': PLATEGA_MERCHANT_ID, 'X-Secret': PLATEGA_SECRET },
+    signal: AbortSignal.timeout(15000),
   });
   if (!r.ok) throw new Error(`platega status ${r.status}`);
   return r.json();
 }
 
 // Сверяем оплату с API Platega и, если всё сходится, выдаём установку.
+// Оплату считаем подтверждённой только по ответу API Platega (колбэк — лишь сигнал «проверь»).
+const checking = new Set(); // защита от двойной выдачи, если колбэк и проверка со страницы пришли одновременно
 async function checkPayment(order) {
-  if (DEMO || !order.platega || order.status !== 'awaiting_payment') return;
+  if (DEMO || !order.platega || !['awaiting_payment', 'payment_failed'].includes(order.status)) return;
+  if (checking.has(order.id)) return;
+  checking.add(order.id);
   order.lastCheck = Date.now();
   try {
     const t = await plategaStatus(order.platega.transactionId);
+    if (t.payload && t.payload !== order.id) { log('checkPayment payload mismatch', order.id, t.payload); return; }
     const amount = Number(t.paymentDetails && t.paymentDetails.amount);
-    if (t.status === 'CONFIRMED') {
+    if (t.status === 'CONFIRMED' && ['awaiting_payment', 'payment_failed'].includes(order.status)) {
       if (amount && Math.round(amount) < order.total) {
         order.status = 'needs_attention'; order.error = `оплачено ${amount}, ожидалось ${order.total}`; save();
         tg(`⚠️ Заказ ${order.id.slice(0, 8)}: сумма оплаты не совпала (${amount} вместо ${order.total}). Проверь вручную.`);
@@ -293,10 +314,11 @@ async function checkPayment(order) {
       order.status = 'paid'; order.paidAt = new Date().toISOString(); save();
       tg(`💳 Оплачен заказ ${order.id.slice(0, 8)} — ${order.total} ₽, ${order.apps.length} прил.\nКонтакт: ${order.contact}`);
       await fulfill(order);
-    } else if (['CANCELED', 'FAILED', 'EXPIRED'].includes(t.status)) {
+    } else if (['CANCELED', 'FAILED', 'EXPIRED'].includes(t.status) && order.status === 'awaiting_payment') {
       order.status = 'payment_failed'; save();
     }
   } catch (e) { log('checkPayment', order.id, e.message); }
+  finally { checking.delete(order.id); }
 }
 
 // ---------- exapplication ----------
@@ -462,12 +484,23 @@ const server = http.createServer(async (req, res) => {
     // Колбэк Platega: проверяем заголовки, отвечаем сразу, статус сверяем через API.
     if (req.method === 'POST' && p === '/api/platega/callback') {
       const raw = await readBody(req);
+      // при сохранении адреса в кабинете Platega шлёт пустой POST и ждёт 200
+      if (!raw.length || !raw.toString('utf8').trim() || raw.toString('utf8').trim() === '{}') return send(res, 200, { ok: true });
       if (DEMO || !PLATEGA_SECRET) return send(res, 503, { ok: false });
-      if (!safeEqual(req.headers['x-merchantid'] || '', PLATEGA_MERCHANT_ID) || !safeEqual(req.headers['x-secret'] || '', PLATEGA_SECRET)) return send(res, 401, { ok: false });
-      send(res, 200, { ok: true });
+      if (!safeEqual(req.headers['x-merchantid'] || '', PLATEGA_MERCHANT_ID) || !safeEqual(req.headers['x-secret'] || '', PLATEGA_SECRET)) { log('platega callback: wrong headers'); return send(res, 401, { ok: false }); }
       let j = {}; try { j = JSON.parse(raw.toString('utf8')); } catch {}
-      const order = j.id && byTx(j.id);
-      if (order) await checkPayment(order);
+      const txId = j.id || j.Id || j.transactionId;
+      const order = (txId && byTx(txId)) || (typeof j.payload === 'string' && Object.prototype.hasOwnProperty.call(orders, j.payload) && orders[j.payload].platega ? orders[j.payload] : null) || null;
+      log('platega callback', txId, j.status, order ? order.id.slice(0, 8) : 'заказ не найден');
+      send(res, 200, { ok: true }); // отвечаем сразу (у них таймаут 60 с), дальше сверяем статус через API
+      if (!order) return;
+      if (['CHARGEBACKED', 'PARTIALLY_REFUNDED', 'DISPUTED'].includes(j.status) && !['awaiting_payment', 'payment_failed'].includes(order.status)) {
+        const key = `${j.status}:${j.refundId || ''}`;
+        order.plategaEvents = order.plategaEvents || [];
+        if (!order.plategaEvents.includes(key)) { order.plategaEvents.push(key); save(); tg(`↩️ Заказ ${order.id.slice(0, 8)}: Platega прислала ${j.status} (${j.amount || ''} ${j.currency || ''}). Проверь в кабинете.`); }
+        return;
+      }
+      await checkPayment(order);
       return;
     }
 
