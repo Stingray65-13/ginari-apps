@@ -262,9 +262,11 @@ function buyerEmail(order) {
   return 'g' + crypto.createHash('sha256').update(c || order.id).digest('hex').slice(0, 16) + '@mail.ru';
 }
 async function plategaCreate(order) {
+  // выбор покупателя: СБП (2) или криптовалюта USDT (13); PLATEGA_METHOD=all — страница Platega с выбором
   const universal = PLATEGA_METHOD === 'all';
+  const method = order.method === 'usdt' ? 13 : (Number(PLATEGA_METHOD) || 2);
   const body = {
-    ...(universal ? {} : { paymentMethod: Number(PLATEGA_METHOD) || 2 }),
+    ...(universal ? {} : { paymentMethod: method }),
     paymentDetails: { amount: order.total, currency: 'RUB' },
     description: `Установка приложений на iPhone (${order.apps.length} шт.), заказ ${order.id.slice(0, 8)}`,
     return: `${BASE_URL}/order/${order.id}`,
@@ -436,6 +438,7 @@ const server = http.createServer(async (req, res) => {
         createdAt: new Date().toISOString(),
         apps, unit, total: unit * apps.length,
         contact, email: String(body.email || '').trim().slice(0, 100),
+        method: body.method === 'usdt' ? 'usdt' : 'sbp',
         status: 'awaiting_payment',
       };
       orders[order.id] = order; save();

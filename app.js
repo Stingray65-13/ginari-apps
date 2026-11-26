@@ -313,7 +313,7 @@
     if (!$('#agree').checked) return showErr('Нужно согласие с офертой.');
     btn.disabled = true; btn.dataset.busy = '1'; btn.textContent = 'Создаём платёж…';
     try {
-      var r = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apps: c.slugs, contact: contact, email: $('#email').value.trim(), agree: true }) });
+      var r = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apps: c.slugs, contact: contact, email: $('#email').value.trim(), method: (document.querySelector('input[name=method]:checked') || {}).value || 'sbp', agree: true }) });
       var j = await r.json();
       if (!j.ok) throw new Error(j.message || 'Не получилось создать заказ.');
       state.selected.clear(); store();

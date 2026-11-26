@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Jost:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/styles.css?v=8">
+<link rel="stylesheet" href="/styles.css?v=9">
 <meta name="theme-color" content="#0C1214">
 <script src="/theme.js?v=8"></script>
 </head>
@@ -62,7 +62,7 @@
       <section class="card" aria-labelledby="hNext">
         <h2 id="hNext">Что будет дальше</h2>
         <ol class="next-steps">
-          <li><div><b>Оплата по СБП</b><span>Переводите из приложения своего банка — пара секунд.</span></div></li>
+          <li><div><b>Оплата по СБП или в USDT</b><span>СБП — из приложения своего банка, USDT — с криптокошелька.</span></div></li>
           <li><div><b>Страница установки открывается сразу</b><span>Прямо на этом сайте, ничего ждать не нужно. Ссылка придёт и в Telegram, если оставите его.</span></div></li>
           <li><div><b>Входите в выданную учётную запись</b><span>По инструкции на странице установки. Каждая ссылка действует 2 часа — лучше установить всё сразу.</span></div></li>
           <li><div><b>Загружаете приложения и выходите</b><span>Скачиваете приложения из App Store и сразу выходите из учётной записи — приложения остаются на iPhone.</span></div></li>
@@ -98,10 +98,14 @@
         <b class="pay-total" id="payTotal"></b>
         <div class="pay-save" id="paySave"></div>
         <div class="pay-rows" id="payRows"></div>
+        <div class="pay-methods" role="radiogroup" aria-label="Способ оплаты">
+          <label class="pm"><input type="radio" name="method" value="sbp" checked><span class="pm-box"><b>СБП</b><small>из приложения банка</small></span></label>
+          <label class="pm"><input type="radio" name="method" value="usdt"><span class="pm-box"><b>USDT</b><small>криптовалютой</small></span></label>
+        </div>
         <label class="check"><input type="checkbox" id="agree"><span>Принимаю <a href="/offer" target="_blank">оферту</a>, <a href="/privacy" target="_blank">политику обработки данных</a> и даю <a href="/consent" target="_blank">согласие на обработку персональных данных</a></span></label>
         <p class="err" id="checkoutErr" hidden></p>
         <button class="btn btn-primary btn-wide" id="payBtn" type="button">Оплатить</button>
-        <p class="pay-note">Оплата по СБП. Установка откроется на этом сайте сразу после оплаты.</p>
+        <p class="pay-note">Установка откроется на этом сайте сразу после оплаты.</p>
       </section>
     </aside>
   </div>
@@ -117,6 +121,6 @@
 </footer>
 
 <script src="/metrika.js?v=8"></script>
-<script src="/app.js?v=8"></script>
+<script src="/app.js?v=9"></script>
 </body>
 </html>
