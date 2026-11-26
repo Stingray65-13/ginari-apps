@@ -44,6 +44,16 @@
         (expired ? '<p>Если что-то не успели поставить — напишите в поддержку, продлим.</p>' + supportBtn(o) :
           '<ol class="tips"><li>Откройте эту страницу <b>на iPhone</b>, куда ставите приложения.</li><li>Входите в аккаунт <b>только в App Store</b> (раздел «Контент и покупки»), не в iCloud.</li><li>Ставьте сразу: страница действует около двух часов.</li></ol>') + '</div>';
       var pages = o.pages || [];
+      // одна ссылка — сразу переводим покупателя на страницу установки (один раз; при возврате назад покажем кнопку)
+      if (pages.length === 1 && pages[0].url && !done && !expired) {
+        var key = 'ginari_go_' + id, went = false;
+        try { went = sessionStorage.getItem(key) === '1'; sessionStorage.setItem(key, '1'); } catch (e) {}
+        if (!went) {
+          h('<div class="order-card"><h1>Открываем установку…</h1>' + summary(o) + '<p>Если страница не открылась сама — нажмите кнопку.</p><a class="btn btn-primary btn-wide" href="' + esc(pages[0].url) + '">Открыть установку</a></div>');
+          location.replace(pages[0].url);
+          return;
+        }
+      }
       if (pages.length) {
         var many = pages.length > 1;
         var body = (many ? '<p class="pages-note">Приложения разделены на ' + pages.length + ' ' + (pages.length < 5 ? 'ссылки' : 'ссылок') + ': обычные — на общей странице, некоторые банки — на отдельных. Ставьте по очереди.</p>' : '') +
