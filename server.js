@@ -53,8 +53,72 @@ function save() {
       fs.renameSync(tmp, ORDERS_FILE);
     } catch (e) { log('save error', e.message); }
   }, 50);
+  if (typeof sheetFlush === 'function') { clearTimeout(sheetTimer); sheetTimer = setTimeout(sheetFlush, 3000); }
 }
 const byTx = (txId) => Object.values(orders).find((o) => o.platega && o.platega.transactionId === txId);
+
+// ---------- журнал заказов в Google Таблице (Apps Script) ----------
+// Каждое изменение заказа отправляется строкой в таблицу (одна строка на заказ, обновляется по номеру).
+// После перезапуска сайта незавершённые заказы последних 3 дней подтягиваются из таблицы обратно.
+const SHEET_URL = (env.ORDERS_SHEET_URL || '').trim();
+const SHEET_SECRET = env.ORDERS_SHEET_SECRET || '';
+const SHEET_CONTACTS = env.ORDERS_SHEET_CONTACTS === '1'; // контакты покупателя в таблицу — только если явно включено
+const sheetSent = new Map(); // id -> отпечаток последней отправленной версии
+let sheetTimer = null, sheetBusy = false;
+const STATUS_RU = { awaiting_payment: 'ждёт оплаты', payment_failed: 'не оплачен', paid: 'оплачен, создаётся установка', needs_attention: 'оплачен, установка не создана', ready: 'выдан' };
+const METHOD_RU = { sbp: 'СБП', usdt: 'USDT' };
+function sheetRow(o) {
+  const msk = (iso) => iso ? new Date(Date.parse(iso) + 3 * 3600e3).toISOString().replace('T', ' ').slice(0, 19) : '';
+  const pages = o.pages || (o.exapp ? [{ apps: o.apps, token: o.exapp.token }] : []);
+  const data = { ...o }; if (!SHEET_CONTACTS) { delete data.contact; delete data.email; }
+  return {
+    id: o.id, short: o.id.slice(0, 8),
+    created: msk(o.createdAt), paid: msk(o.paidAt),
+    status: STATUS_RU[o.status] || o.status,
+    apps: o.apps.map((s) => (META.get(s) || { name: s }).name).join(', '),
+    count: o.apps.length, unit: o.unit, total: o.total,
+    method: METHOD_RU[o.method] || (o.method || ''),
+    paid_amount: o.paidAmount != null ? `${o.paidAmount} ${o.paidCurrency || ''}`.trim() : '',
+    platega_id: (o.platega && o.platega.transactionId) || '',
+    links: pages.filter((p) => p.token && !p.demo).map((p) => `https://exapplication.ru/p/${p.token}`).join('\n'),
+    install: o.installStatus || pages.map((p) => p.installStatus || '').filter(Boolean).join(', '),
+    error: o.error || '',
+    contact: SHEET_CONTACTS ? (o.contact || '') : '', email: SHEET_CONTACTS ? (o.email || '') : '',
+    data: JSON.stringify(data),
+  };
+}
+async function sheetFlush() {
+  if (!SHEET_URL || sheetBusy) return;
+  const changed = Object.values(orders).filter((o) => { const r = JSON.stringify(sheetRow(o)); return sheetSent.get(o.id) !== r; });
+  if (!changed.length) return;
+  sheetBusy = true;
+  const rows = changed.slice(0, 50).map(sheetRow);
+  try {
+    const r = await fetch(SHEET_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ secret: SHEET_SECRET, rows }), redirect: 'follow', signal: AbortSignal.timeout(30000) });
+    const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch (e) {}
+    if (!j.ok) throw new Error(`${r.status} ${t.slice(0, 200)}`);
+    rows.forEach((row) => sheetSent.set(row.id, JSON.stringify(row)));
+  } catch (e) { log('sheet sync error', e.message); clearTimeout(sheetTimer); sheetTimer = setTimeout(sheetFlush, 60000); }
+  finally { sheetBusy = false; }
+  if (changed.length > 50) setTimeout(sheetFlush, 1000);
+}
+async function sheetRestore() {
+  if (!SHEET_URL) return;
+  try {
+    const u = `${SHEET_URL}${SHEET_URL.includes('?') ? '&' : '?'}secret=${encodeURIComponent(SHEET_SECRET)}&days=3`;
+    const r = await fetch(u, { redirect: 'follow', signal: AbortSignal.timeout(30000) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(JSON.stringify(j).slice(0, 200));
+    let n = 0;
+    for (const row of j.rows || []) {
+      let o; try { o = JSON.parse(row.data || ''); } catch (e) { continue; }
+      if (!o || !o.id || orders[o.id]) continue;
+      delete o.fulfilling;
+      orders[o.id] = o; sheetSent.set(o.id, JSON.stringify(sheetRow(o))); n++;
+    }
+    if (n) { save(); log('restored from sheet', n); }
+  } catch (e) { log('sheet restore error', e.message); }
+}
 
 // ---------- утилиты ----------
 const log = (...a) => console.log(new Date().toISOString(), ...a);
@@ -312,11 +376,13 @@ async function checkPayment(order) {
     if (t.status === 'CONFIRMED' && ['awaiting_payment', 'payment_failed'].includes(order.status)) {
       // сумму сверяем только в рублях (при оплате USDT Platega может вернуть сумму в USDT)
       if (cur === 'RUB' && amount && Math.round(amount) < order.total) {
-        order.status = 'needs_attention'; order.error = `оплачено ${amount}, ожидалось ${order.total}`; save();
+        order.status = 'needs_attention'; order.error = `оплачено ${amount}, ожидалось ${order.total}`;
+        order.paidAt = new Date().toISOString(); order.paidAmount = amount; order.paidCurrency = cur; save();
         tg(`⚠️ Заказ ${order.id.slice(0, 8)}: сумма оплаты не совпала (${amount} вместо ${order.total}). Проверь вручную.`);
         return;
       }
-      order.status = 'paid'; order.paidAt = new Date().toISOString(); save();
+      order.status = 'paid'; order.paidAt = new Date().toISOString();
+      order.paidAmount = amount || null; order.paidCurrency = cur; order.paidMethod = t.paymentMethod || null; save();
       tg(`💳 Оплачен заказ ${order.id.slice(0, 8)} — ${order.total} ₽, ${order.apps.length} прил.\nКонтакт: ${order.contact}`);
       await fulfill(order);
     } else if (['CANCELED', 'FAILED', 'EXPIRED'].includes(t.status) && order.status === 'awaiting_payment') {
@@ -565,4 +631,5 @@ setInterval(() => {
   }
 }, 10000).unref();
 
+sheetRestore().then(() => sheetFlush());
 server.listen(PORT, () => log(`Ginari apps on ${BASE_URL} (port ${PORT}, data: ${DATA_DIR || 'память'})${DEMO ? ' — ДЕМО-РЕЖИМ: оплата имитируется, установки не создаются' : ''}`));
