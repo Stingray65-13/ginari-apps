@@ -328,7 +328,8 @@ async function checkPayment(order) {
 
 // ---------- exapplication ----------
 async function createPage(order, idx, apps) {
-  const rid = `${order.id}.${idx}`;
+  // exapp: request_id / Idempotency-Key — 16–64 символа, только латиница, цифры, «_» и «-» (точка запрещена)
+  const rid = `${order.id}_p${idx}`;
   const r = await fetch(`${EXAPP_API}/pages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${EXAPP_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': rid },
@@ -522,8 +523,12 @@ const server = http.createServer(async (req, res) => {
       send(res, 200, { ok: true });
       let ev = {}; try { ev = JSON.parse(raw.toString('utf8')); } catch {}
       if (ev.event === 'balance.low') { tg(`💰 Баланс exapplication ниже порога: ${ev.balance} ₽. Пополни, иначе новые заказы не создадутся.`); return; }
-      const [oid, pidx] = String(ev.external_id || '').split('.');
-      const order = oid && orders[oid];
+      const ext = String(ev.external_id || '');
+      const m2 = ext.match(/^(.+)(?:\.(\d+)|_p(\d+))$/); // «<заказ>_p<номер страницы>» (раньше «<заказ>.<номер>»)
+      const has = (k) => k && Object.prototype.hasOwnProperty.call(orders, k);
+      const oid = m2 && has(m2[1]) ? m2[1] : ext;
+      const pidx = m2 && has(m2[1]) ? (m2[2] || m2[3]) : undefined;
+      const order = has(oid) ? orders[oid] : null;
       if (order) {
         const pg = order.pages && pidx != null ? order.pages[Number(pidx)] : null;
         if (pg) pg.installStatus = ev.event;
