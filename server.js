@@ -308,7 +308,7 @@ async function checkPayment(order) {
     if (t.payload && t.payload !== order.id) { log('checkPayment payload mismatch', order.id, t.payload); return; }
     const amount = Number(t.paymentDetails && t.paymentDetails.amount);
     const cur = String((t.paymentDetails && t.paymentDetails.currency) || 'RUB').toUpperCase();
-    log('platega status', order.id.slice(0, 8), t.status, amount, cur, t.paymentMethod || '');
+    if (t.status !== order.lastPlStatus) { order.lastPlStatus = t.status; log('platega status', order.id.slice(0, 8), t.status, amount, cur, t.paymentMethod || ''); }
     if (t.status === 'CONFIRMED' && ['awaiting_payment', 'payment_failed'].includes(order.status)) {
       // сумму сверяем только в рублях (при оплате USDT Platega может вернуть сумму в USDT)
       if (cur === 'RUB' && amount && Math.round(amount) < order.total) {
@@ -483,6 +483,7 @@ const server = http.createServer(async (req, res) => {
         pages: order.status === 'ready' || order.status === 'needs_attention' ? (order.pages || []).filter((pg) => pg.token).map((pg) => ({
           apps: pg.apps.map((s) => (META.get(s) || { name: s }).name),
           embed: pg.demo ? null : `https://exapplication.ru/papi/v1/embed/${pg.token}`,
+          url: pg.demo ? null : (pg.url || `https://exapplication.ru/p/${pg.token}`),
           status: pg.installStatus || null,
         })) : [],
         demo: !!((order.exapp && order.exapp.demo) || (order.pages || []).some((pg) => pg.demo)),
@@ -553,13 +554,15 @@ setInterval(() => {
   const now = Date.now();
   for (const o of Object.values(orders)) {
     const age = now - Date.parse(o.createdAt);
-    if (o.status === 'awaiting_payment' && age < 60 * 60 * 1000 && (!o.lastCheck || now - o.lastCheck > 60000)) checkPayment(o);
+    // колбэк Platega может не прийти/задержаться — сами спрашиваем статус: первые 20 минут каждые 10 с, потом раз в минуту
+    const every = age < 20 * 60 * 1000 ? 10000 : 60000;
+    if (o.status === 'awaiting_payment' && o.platega && age < 60 * 60 * 1000 && (!o.lastCheck || now - o.lastCheck > every)) checkPayment(o);
     if (o.status === 'paid' && !o.fulfilling) fulfill(o);
     // оплачено, но установка не создалась (нет денег у exapp, сбой) — пробуем снова каждые 3 минуты в течение суток
     if (o.status === 'needs_attention' && o.paidAt && !o.fulfilling && !/^оплачено/.test(o.error || '') && now - Date.parse(o.paidAt) < 24 * 3600 * 1000 && (!o.lastAttempt || now - o.lastAttempt > 3 * 60 * 1000)) {
       o.lastAttempt = now; o.status = 'paid'; o.attempts = 0; fulfill(o);
     }
   }
-}, 30000).unref();
+}, 10000).unref();
 
 server.listen(PORT, () => log(`Ginari apps on ${BASE_URL} (port ${PORT}, data: ${DATA_DIR || 'память'})${DEMO ? ' — ДЕМО-РЕЖИМ: оплата имитируется, установки не создаются' : ''}`));
