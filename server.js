@@ -307,8 +307,11 @@ async function checkPayment(order) {
     const t = await plategaStatus(order.platega.transactionId);
     if (t.payload && t.payload !== order.id) { log('checkPayment payload mismatch', order.id, t.payload); return; }
     const amount = Number(t.paymentDetails && t.paymentDetails.amount);
+    const cur = String((t.paymentDetails && t.paymentDetails.currency) || 'RUB').toUpperCase();
+    log('platega status', order.id.slice(0, 8), t.status, amount, cur, t.paymentMethod || '');
     if (t.status === 'CONFIRMED' && ['awaiting_payment', 'payment_failed'].includes(order.status)) {
-      if (amount && Math.round(amount) < order.total) {
+      // сумму сверяем только в рублях (при оплате USDT Platega может вернуть сумму в USDT)
+      if (cur === 'RUB' && amount && Math.round(amount) < order.total) {
         order.status = 'needs_attention'; order.error = `оплачено ${amount}, ожидалось ${order.total}`; save();
         tg(`⚠️ Заказ ${order.id.slice(0, 8)}: сумма оплаты не совпала (${amount} вместо ${order.total}). Проверь вручную.`);
         return;
@@ -330,8 +333,11 @@ async function createPage(order, idx, apps) {
     method: 'POST',
     headers: { Authorization: `Bearer ${EXAPP_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': rid },
     body: JSON.stringify({ apps, external_id: rid, request_id: rid }),
+    signal: AbortSignal.timeout(30000),
   });
-  const j = await r.json().catch(() => ({}));
+  const text = await r.text();
+  let j = {}; try { j = JSON.parse(text); } catch (e) {}
+  if (!r.ok || !j.token) log('exapp /pages error', order.id.slice(0, 8), idx, r.status, text.slice(0, 400), JSON.stringify(apps));
   return { r, j };
 }
 
@@ -354,17 +360,17 @@ async function fulfill(order) {
         save(); log('page created', order.id, i, j.charged, j.balance_after);
         continue;
       }
-      order.attempts = (order.attempts || 0) + 1;
-      order.error = `${r.status} ${j.error || ''} ${j.message || ''}`.trim();
+      order.attempts = (order.attempts || 0) + 1; order.lastAttempt = Date.now();
+      order.error = `${r.status} ${typeof j.error === 'object' ? JSON.stringify(j.error) : (j.error || '')} ${j.message || ''}`.trim();
       if (r.status === 402 || order.attempts >= 3) {
         order.status = 'needs_attention'; save();
-        tg(`🚨 Заказ ${order.id.slice(0, 8)} оплачен, но установка создана не полностью (${order.pages.filter((x) => x.token).length} из ${order.pages.length}): ${order.error}.\n${r.status === 402 ? 'Пополни баланс exapplication — остальное создастся само при следующей проверке.' : 'Проверь вручную.'}\nКонтакт клиента: ${order.contact}`);
+        if (!order.notified) order.notified = true, tg(`🚨 Заказ ${order.id.slice(0, 8)} оплачен, но установка создана не полностью (${order.pages.filter((x) => x.token).length} из ${order.pages.length}): ${order.error}.\n${r.status === 402 ? 'Пополни баланс exapplication — остальное создастся само при следующей проверке.' : 'Проверь вручную.'}\nКонтакт клиента: ${order.contact}`);
       } else { save(); }
       return;
     }
     order.status = 'ready'; save();
   } catch (e) {
-    order.attempts = (order.attempts || 0) + 1; order.error = e.message; save();
+    order.attempts = (order.attempts || 0) + 1; order.lastAttempt = Date.now(); order.error = e.message; save();
     log('fulfill error', order.id, e.message);
   } finally { order.fulfilling = false; }
 }
@@ -544,6 +550,10 @@ setInterval(() => {
     const age = now - Date.parse(o.createdAt);
     if (o.status === 'awaiting_payment' && age < 60 * 60 * 1000 && (!o.lastCheck || now - o.lastCheck > 60000)) checkPayment(o);
     if (o.status === 'paid' && !o.fulfilling) fulfill(o);
+    // оплачено, но установка не создалась (нет денег у exapp, сбой) — пробуем снова каждые 3 минуты в течение суток
+    if (o.status === 'needs_attention' && o.paidAt && !o.fulfilling && !/^оплачено/.test(o.error || '') && now - Date.parse(o.paidAt) < 24 * 3600 * 1000 && (!o.lastAttempt || now - o.lastAttempt > 3 * 60 * 1000)) {
+      o.lastAttempt = now; o.status = 'paid'; o.attempts = 0; fulfill(o);
+    }
   }
 }, 30000).unref();
 
